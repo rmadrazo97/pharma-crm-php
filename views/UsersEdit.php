@@ -25,7 +25,7 @@ loadjs.ready(["wrapper", "head"], function () {
         ["_password", [fields._password.visible && fields._password.required ? ew.Validators.required(fields._password.caption) : null], fields._password.isInvalid],
         ["role", [fields.role.visible && fields.role.required ? ew.Validators.required(fields.role.caption) : null, ew.Validators.integer], fields.role.isInvalid],
         ["_email", [fields._email.visible && fields._email.required ? ew.Validators.required(fields._email.caption) : null], fields._email.isInvalid],
-        ["state", [fields.state.visible && fields.state.required ? ew.Validators.required(fields.state.caption) : null, ew.Validators.integer], fields.state.isInvalid]
+        ["state", [fields.state.visible && fields.state.required ? ew.Validators.required(fields.state.caption) : null], fields.state.isInvalid]
     ]);
 
     // Form_CustomValidate
@@ -38,6 +38,7 @@ loadjs.ready(["wrapper", "head"], function () {
     fusersedit.validateRequired = ew.CLIENT_VALIDATE;
 
     // Dynamic selection lists
+    fusersedit.lists.state = <?= $Page->state->toClientList($Page) ?>;
     loadjs.done("fusersedit");
 });
 </script>
@@ -125,9 +126,35 @@ $Page->showMessage();
         <label id="elh_users_state" for="x_state" class="<?= $Page->LeftColumnClass ?>"><?= $Page->state->caption() ?><?= $Page->state->Required ? $Language->phrase("FieldRequiredIndicator") : "" ?></label>
         <div class="<?= $Page->RightColumnClass ?>"><div<?= $Page->state->cellAttributes() ?>>
 <span id="el_users_state">
-<input type="<?= $Page->state->getInputTextType() ?>" name="x_state" id="x_state" data-table="users" data-field="x_state" value="<?= $Page->state->EditValue ?>" size="30" placeholder="<?= HtmlEncode($Page->state->getPlaceHolder()) ?>"<?= $Page->state->editAttributes() ?> aria-describedby="x_state_help">
-<?= $Page->state->getCustomMessage() ?>
-<div class="invalid-feedback"><?= $Page->state->getErrorMessage() ?></div>
+    <select
+        id="x_state"
+        name="x_state"
+        class="form-select ew-select<?= $Page->state->isInvalidClass() ?>"
+        data-select2-id="fusersedit_x_state"
+        data-table="users"
+        data-field="x_state"
+        data-value-separator="<?= $Page->state->displayValueSeparatorAttribute() ?>"
+        data-placeholder="<?= HtmlEncode($Page->state->getPlaceHolder()) ?>"
+        <?= $Page->state->editAttributes() ?>>
+        <?= $Page->state->selectOptionListHtml("x_state") ?>
+    </select>
+    <?= $Page->state->getCustomMessage() ?>
+    <div class="invalid-feedback"><?= $Page->state->getErrorMessage() ?></div>
+<script>
+loadjs.ready("fusersedit", function() {
+    var options = { name: "x_state", selectId: "fusersedit_x_state" },
+        el = document.querySelector("select[data-select2-id='" + options.selectId + "']");
+    options.dropdownParent = el.closest("#ew-modal-dialog, #ew-add-opt-dialog");
+    if (fusersedit.lists.state.lookupOptions.length) {
+        options.data = { id: "x_state", form: "fusersedit" };
+    } else {
+        options.ajax = { id: "x_state", form: "fusersedit", limit: ew.LOOKUP_PAGE_SIZE };
+    }
+    options.minimumResultsForSearch = Infinity;
+    options = Object.assign({}, ew.selectOptions, options, ew.vars.tables.users.fields.state.selectOptions);
+    ew.createSelect(options);
+});
+</script>
 </span>
 </div></div>
     </div>

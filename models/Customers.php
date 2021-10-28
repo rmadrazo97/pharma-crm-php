@@ -274,10 +274,10 @@ class Customers extends DbTable
         $this->user_id->PleaseSelectText = $Language->phrase("PleaseSelect"); // "PleaseSelect" text
         switch ($CurrentLanguage) {
             case "en-US":
-                $this->user_id->Lookup = new Lookup('user_id', 'users', false, 'user_id', ["user_id","name","",""], ["x_user_id"], ["x_user_id"], ["user_id"], ["x_user_id"], [], [], '', '', "CONCAT(COALESCE(`user_id`, ''),'" . ValueSeparator(1, $this->user_id) . "',COALESCE(`name`,''))");
+                $this->user_id->Lookup = new Lookup('user_id', 'users', false, 'user_id', ["user_id","name","",""], ["x_user_id","x_user_id"], ["x_user_id","x_user_id"], ["user_id","user_id"], ["x_user_id","x_user_id"], [], [], '', '', "CONCAT(COALESCE(`user_id`, ''),'" . ValueSeparator(1, $this->user_id) . "',COALESCE(`name`,''))");
                 break;
             default:
-                $this->user_id->Lookup = new Lookup('user_id', 'users', false, 'user_id', ["user_id","name","",""], ["x_user_id"], ["x_user_id"], ["user_id"], ["x_user_id"], [], [], '', '', "CONCAT(COALESCE(`user_id`, ''),'" . ValueSeparator(1, $this->user_id) . "',COALESCE(`name`,''))");
+                $this->user_id->Lookup = new Lookup('user_id', 'users', false, 'user_id', ["user_id","name","",""], ["x_user_id","x_user_id"], ["x_user_id","x_user_id"], ["user_id","user_id"], ["x_user_id","x_user_id"], [], [], '', '', "CONCAT(COALESCE(`user_id`, ''),'" . ValueSeparator(1, $this->user_id) . "',COALESCE(`name`,''))");
                 break;
         }
         $this->user_id->DefaultErrorMessage = $Language->phrase("IncorrectInteger");
@@ -927,7 +927,7 @@ class Customers extends DbTable
         if ($sortUrl) {
             $html .= '<div class="ew-table-header-sort">' . $fld->getSortIcon() . '</div>';
         }
-        if ($fld->UseFilter) {
+        if ($fld->UseFilter && $Security->canSearch()) {
             $html .= '<div class="ew-filter-dropdown-btn" data-ew-action="filter" data-table="' . $fld->TableVar . '" data-field="' . $fld->FieldVar .
                 '"><div class="ew-table-header-filter" role="button" aria-haspopup="true">' . $Language->phrase("Filter") . '</div></div>';
         }

@@ -960,26 +960,27 @@
     <phrase id="removeitem" value="Remove item" client="1" />
   </global>
   <project>
+    <phrase id="bodytitle" value="Pharma CRM" />
     <phrase id="footertext" value="&amp;copy;2021 e.World Technology Limited. All rights reserved." />
     <menu id="1">
-      <phrase id="menutext" value="customers" />
+      <phrase id="menutext" value="Clientes" />
     </menu>
     <menu id="2">
-      <phrase id="menutext" value="products" />
+      <phrase id="menutext" value="Productos" />
     </menu>
     <menu id="3">
-      <phrase id="menutext" value="sales order" />
+      <phrase id="menutext" value="Ordenes de compra" />
     </menu>
     <menu id="4">
       <phrase id="menutext" value="sales order detail" />
     </menu>
     <menu id="5">
-      <phrase id="menutext" value="users" />
+      <phrase id="menutext" value="Usuarios" />
     </menu>
     <table id="customers">
-      <phrase id="tblcaption" value="customers" />
+      <phrase id="tblcaption" value="Clientes" />
       <field id="customer_id">
-        <phrase id="fldcaption" value="customer id" />
+        <phrase id="fldcaption" value="Id Cliente" />
       </field>
       <field id="name">
         <phrase id="fldcaption" value="Nombe" />
@@ -1004,7 +1005,7 @@
       </field>
     </table>
     <table id="products">
-      <phrase id="tblcaption" value="products" />
+      <phrase id="tblcaption" value="Productos" />
       <field id="product_id">
         <phrase id="fldcaption" value="product id" />
       </field>
@@ -1019,7 +1020,7 @@
       </field>
     </table>
     <table id="sales_order">
-      <phrase id="tblcaption" value="sales order" />
+      <phrase id="tblcaption" value="Ordenes de compra" />
       <field id="order_id">
         <phrase id="fldcaption" value="order id" />
       </field>
@@ -1064,24 +1065,28 @@
       </field>
     </table>
     <table id="users">
-      <phrase id="tblcaption" value="users" />
+      <phrase id="tblcaption" value="Usuarios" />
       <field id="user_id">
         <phrase id="fldcaption" value="user id" />
       </field>
       <field id="name">
-        <phrase id="fldcaption" value="name" />
+        <phrase id="fldcaption" value="Nombre" />
       </field>
       <field id="_password">
-        <phrase id="fldcaption" value="password" />
+        <phrase id="fldcaption" value="Contrasena" />
       </field>
       <field id="role">
-        <phrase id="fldcaption" value="role" />
+        <phrase id="fldcaption" value="Perfil" />
       </field>
       <field id="_email">
-        <phrase id="fldcaption" value="email" />
+        <phrase id="fldcaption" value="Email" />
       </field>
       <field id="state">
-        <phrase id="fldcaption" value="state" />
+        <phrase id="fldcaption" value="Estado" />
+        <phrase id="fldtagvalue1" value="1" />
+        <phrase id="fldtagcaption1" value="Activo" />
+        <phrase id="fldtagvalue2" value="2" />
+        <phrase id="fldtagcaption2" value="Inactivo" />
       </field>
     </table>
   </project>

@@ -136,6 +136,7 @@ class CustomersDelete extends Customers
     public function __construct()
     {
         global $Language, $DashboardReport, $DebugTimer;
+        global $UserTable;
 
         // Initialize
         $GLOBALS["Page"] = &$this;
@@ -164,6 +165,9 @@ class CustomersDelete extends Customers
 
         // Open connection
         $GLOBALS["Conn"] = $GLOBALS["Conn"] ?? $this->getConnection();
+
+        // User table object
+        $UserTable = Container("usertable");
     }
 
     // Get content from stream
@@ -392,10 +396,10 @@ class CustomersDelete extends Customers
         $this->UseLayout = $this->UseLayout && ConvertToBool(Param("layout", true));
         $this->CurrentAction = Param("action"); // Set up current action
         $this->customer_id->setVisibility();
-        $this->name->Visible = false;
-        $this->phone->Visible = false;
-        $this->_email->Visible = false;
-        $this->address->Visible = false;
+        $this->name->setVisibility();
+        $this->phone->setVisibility();
+        $this->_email->setVisibility();
+        $this->address->setVisibility();
         $this->_profile->setVisibility();
         $this->state->setVisibility();
         $this->user_id->setVisibility();
@@ -477,6 +481,9 @@ class CustomersDelete extends Customers
 
         // Set LoginStatus / Page_Rendering / Page_Render
         if (!IsApi() && !$this->isTerminated()) {
+            // Setup login status
+            SetupLoginStatus();
+
             // Pass login status to client side
             SetClientVar("login", LoginStatus());
 
@@ -639,6 +646,22 @@ class CustomersDelete extends Customers
             $this->customer_id->ViewValue = $this->customer_id->CurrentValue;
             $this->customer_id->ViewCustomAttributes = "";
 
+            // name
+            $this->name->ViewValue = $this->name->CurrentValue;
+            $this->name->ViewCustomAttributes = "";
+
+            // phone
+            $this->phone->ViewValue = $this->phone->CurrentValue;
+            $this->phone->ViewCustomAttributes = "";
+
+            // email
+            $this->_email->ViewValue = $this->_email->CurrentValue;
+            $this->_email->ViewCustomAttributes = "";
+
+            // address
+            $this->address->ViewValue = $this->address->CurrentValue;
+            $this->address->ViewCustomAttributes = "";
+
             // profile
             $this->_profile->ViewValue = $this->_profile->CurrentValue;
             $this->_profile->ViewValue = FormatNumber($this->_profile->ViewValue, $this->_profile->formatPattern());
@@ -678,6 +701,26 @@ class CustomersDelete extends Customers
             $this->customer_id->HrefValue = "";
             $this->customer_id->TooltipValue = "";
 
+            // name
+            $this->name->LinkCustomAttributes = "";
+            $this->name->HrefValue = "";
+            $this->name->TooltipValue = "";
+
+            // phone
+            $this->phone->LinkCustomAttributes = "";
+            $this->phone->HrefValue = "";
+            $this->phone->TooltipValue = "";
+
+            // email
+            $this->_email->LinkCustomAttributes = "";
+            $this->_email->HrefValue = "";
+            $this->_email->TooltipValue = "";
+
+            // address
+            $this->address->LinkCustomAttributes = "";
+            $this->address->HrefValue = "";
+            $this->address->TooltipValue = "";
+
             // profile
             $this->_profile->LinkCustomAttributes = "";
             $this->_profile->HrefValue = "";
@@ -704,6 +747,10 @@ class CustomersDelete extends Customers
     protected function deleteRows()
     {
         global $Language, $Security;
+        if (!$Security->canDelete()) {
+            $this->setFailureMessage($Language->phrase("NoDeletePermission")); // No delete permission
+            return false;
+        }
         $sql = $this->getCurrentSql();
         $conn = $this->getConnection();
         $rows = $conn->fetchAllAssociative($sql);

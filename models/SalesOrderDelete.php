@@ -136,6 +136,7 @@ class SalesOrderDelete extends SalesOrder
     public function __construct()
     {
         global $Language, $DashboardReport, $DebugTimer;
+        global $UserTable;
 
         // Initialize
         $GLOBALS["Page"] = &$this;
@@ -164,6 +165,9 @@ class SalesOrderDelete extends SalesOrder
 
         // Open connection
         $GLOBALS["Conn"] = $GLOBALS["Conn"] ?? $this->getConnection();
+
+        // User table object
+        $UserTable = Container("usertable");
     }
 
     // Get content from stream
@@ -472,6 +476,9 @@ class SalesOrderDelete extends SalesOrder
 
         // Set LoginStatus / Page_Rendering / Page_Render
         if (!IsApi() && !$this->isTerminated()) {
+            // Setup login status
+            SetupLoginStatus();
+
             // Pass login status to client side
             SetClientVar("login", LoginStatus());
 
@@ -664,6 +671,10 @@ class SalesOrderDelete extends SalesOrder
     protected function deleteRows()
     {
         global $Language, $Security;
+        if (!$Security->canDelete()) {
+            $this->setFailureMessage($Language->phrase("NoDeletePermission")); // No delete permission
+            return false;
+        }
         $sql = $this->getCurrentSql();
         $conn = $this->getConnection();
         $rows = $conn->fetchAllAssociative($sql);

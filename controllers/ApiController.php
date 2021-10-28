@@ -97,7 +97,12 @@ class ApiController
                         if ($lookup) {
                             $tbl = $lookup->getTable();
                             if ($tbl) {
-                                $res = array_merge($res, $page->lookup($ar));
+                                $Security->loadTablePermissions($tbl->TableVar);
+                                if ($Security->canLookup()) {
+                                    $res = array_merge($res, $page->lookup($ar));
+                                } else {
+                                    $res = array_merge($res, ["result" => $Language->phrase("401")]);
+                                }
                             }
                         }
                     }

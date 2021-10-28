@@ -159,6 +159,7 @@ class SalesOrderDetailList extends SalesOrderDetail
     public function __construct()
     {
         global $Language, $DashboardReport, $DebugTimer;
+        global $UserTable;
 
         // Initialize
         $GLOBALS["Page"] = &$this;
@@ -198,6 +199,9 @@ class SalesOrderDetailList extends SalesOrderDetail
 
         // Open connection
         $GLOBALS["Conn"] = $GLOBALS["Conn"] ?? $this->getConnection();
+
+        // User table object
+        $UserTable = Container("usertable");
 
         // List options
         $this->ListOptions = new ListOptions(["Tag" => "td", "TableVar" => $this->TableVar]);
@@ -574,6 +578,31 @@ class SalesOrderDetailList extends SalesOrderDetail
 
         // Use layout
         $this->UseLayout = $this->UseLayout && ConvertToBool(Param("layout", true));
+
+        // Get export parameters
+        $custom = "";
+        if (Param("export") !== null) {
+            $this->Export = Param("export");
+            $custom = Param("custom", "");
+        } elseif (IsPost()) {
+            if (Post("exporttype") !== null) {
+                $this->Export = Post("exporttype");
+            }
+            $custom = Post("custom", "");
+        } elseif (Get("cmd") == "json") {
+            $this->Export = Get("cmd");
+        } else {
+            $this->setExportReturnUrl(CurrentUrl());
+        }
+        $ExportFileName = $this->TableVar; // Get export file, used in header
+
+        // Get custom export parameters
+        if ($this->isExport() && $custom != "") {
+            $this->CustomExport = $this->Export;
+            $this->Export = "print";
+        }
+        $CustomExportType = $this->CustomExport;
+        $ExportType = $this->Export; // Get export parameter, used in header
         $this->CurrentAction = Param("action"); // Set up current action
 
         // Get grid add count
@@ -584,6 +613,9 @@ class SalesOrderDetailList extends SalesOrderDetail
 
         // Set up list options
         $this->setupListOptions();
+
+        // Setup export options
+        $this->setupExportOptions();
         $this->order_detail_id->setVisibility();
         $this->product_id->setVisibility();
         $this->sales_order_id->setVisibility();
@@ -685,6 +717,9 @@ class SalesOrderDetailList extends SalesOrderDetail
 
         // Build filter
         $filter = "";
+        if (!$Security->canList()) {
+            $filter = "(0=1)"; // Filter all records
+        }
         AddFilter($filter, $this->DbDetailFilter);
         AddFilter($filter, $this->SearchWhere);
 
@@ -695,6 +730,13 @@ class SalesOrderDetailList extends SalesOrderDetail
         } else {
             $this->setSessionWhere($filter);
             $this->CurrentFilter = "";
+        }
+
+        // Export data only
+        if (!$this->CustomExport && in_array($this->Export, array_keys(Config("EXPORT_CLASSES")))) {
+            $this->exportData();
+            $this->terminate();
+            return;
         }
         if ($this->isGridAdd()) {
             $this->CurrentFilter = "0=1";
@@ -715,6 +757,9 @@ class SalesOrderDetailList extends SalesOrderDetail
 
             // Set no record found message
             if (!$this->CurrentAction && $this->TotalRecords == 0) {
+                if (!$Security->canList()) {
+                    $this->setWarningMessage(DeniedMessage());
+                }
                 if ($this->SearchWhere == "0=101") {
                     $this->setWarningMessage($Language->phrase("EnterSearchCriteria"));
                 } else {
@@ -756,6 +801,9 @@ class SalesOrderDetailList extends SalesOrderDetail
 
         // Set LoginStatus / Page_Rendering / Page_Render
         if (!IsApi() && !$this->isTerminated()) {
+            // Setup login status
+            SetupLoginStatus();
+
             // Pass login status to client side
             SetClientVar("login", LoginStatus());
 
@@ -906,25 +954,19 @@ class SalesOrderDetailList extends SalesOrderDetail
         // "view"
         $item = &$this->ListOptions->add("view");
         $item->CssClass = "text-nowrap";
-        $item->Visible = true;
+        $item->Visible = $Security->canView();
         $item->OnLeft = false;
 
         // "edit"
         $item = &$this->ListOptions->add("edit");
         $item->CssClass = "text-nowrap";
-        $item->Visible = true;
+        $item->Visible = $Security->canEdit();
         $item->OnLeft = false;
 
         // "copy"
         $item = &$this->ListOptions->add("copy");
         $item->CssClass = "text-nowrap";
-        $item->Visible = true;
-        $item->OnLeft = false;
-
-        // "delete"
-        $item = &$this->ListOptions->add("delete");
-        $item->CssClass = "text-nowrap";
-        $item->Visible = true;
+        $item->Visible = $Security->canAdd();
         $item->OnLeft = false;
 
         // List actions
@@ -937,7 +979,7 @@ class SalesOrderDetailList extends SalesOrderDetail
 
         // "checkbox"
         $item = &$this->ListOptions->add("checkbox");
-        $item->Visible = false;
+        $item->Visible = $Security->canDelete();
         $item->OnLeft = false;
         $item->Header = "<div class=\"form-check\"><input type=\"checkbox\" name=\"key\" id=\"key\" class=\"form-check-input\" data-ew-action=\"select-all-keys\"></div>";
         if ($item->OnLeft) {
@@ -982,7 +1024,7 @@ class SalesOrderDetailList extends SalesOrderDetail
             // "view"
             $opt = $this->ListOptions["view"];
             $viewcaption = HtmlTitle($Language->phrase("ViewLink"));
-            if (true) {
+            if ($Security->canView()) {
                 $opt->Body = "<a class=\"ew-row-link ew-view\" title=\"" . $viewcaption . "\" data-caption=\"" . $viewcaption . "\" href=\"" . HtmlEncode(GetUrl($this->ViewUrl)) . "\">" . $Language->phrase("ViewLink") . "</a>";
             } else {
                 $opt->Body = "";
@@ -991,7 +1033,7 @@ class SalesOrderDetailList extends SalesOrderDetail
             // "edit"
             $opt = $this->ListOptions["edit"];
             $editcaption = HtmlTitle($Language->phrase("EditLink"));
-            if (true) {
+            if ($Security->canEdit()) {
                 $opt->Body = "<a class=\"ew-row-link ew-edit\" title=\"" . HtmlTitle($Language->phrase("EditLink")) . "\" data-caption=\"" . HtmlTitle($Language->phrase("EditLink")) . "\" href=\"" . HtmlEncode(GetUrl($this->EditUrl)) . "\">" . $Language->phrase("EditLink") . "</a>";
             } else {
                 $opt->Body = "";
@@ -1000,16 +1042,8 @@ class SalesOrderDetailList extends SalesOrderDetail
             // "copy"
             $opt = $this->ListOptions["copy"];
             $copycaption = HtmlTitle($Language->phrase("CopyLink"));
-            if (true) {
+            if ($Security->canAdd()) {
                 $opt->Body = "<a class=\"ew-row-link ew-copy\" title=\"" . $copycaption . "\" data-caption=\"" . $copycaption . "\" href=\"" . HtmlEncode(GetUrl($this->CopyUrl)) . "\">" . $Language->phrase("CopyLink") . "</a>";
-            } else {
-                $opt->Body = "";
-            }
-
-            // "delete"
-            $opt = $this->ListOptions["delete"];
-            if (true) {
-                $opt->Body = "<a class=\"ew-row-link ew-delete\" data-ew-action=\"\" title=\"" . HtmlTitle($Language->phrase("DeleteLink")) . "\" data-caption=\"" . HtmlTitle($Language->phrase("DeleteLink")) . "\" href=\"" . HtmlEncode(GetUrl($this->DeleteUrl)) . "\">" . $Language->phrase("DeleteLink") . "</a>";
             } else {
                 $opt->Body = "";
             }
@@ -1076,8 +1110,13 @@ class SalesOrderDetailList extends SalesOrderDetail
         $item = &$option->add("add");
         $addcaption = HtmlTitle($Language->phrase("AddLink"));
         $item->Body = "<a class=\"ew-add-edit ew-add\" title=\"" . $addcaption . "\" data-caption=\"" . $addcaption . "\" href=\"" . HtmlEncode(GetUrl($this->AddUrl)) . "\">" . $Language->phrase("AddLink") . "</a>";
-        $item->Visible = $this->AddUrl != "";
+        $item->Visible = $this->AddUrl != "" && $Security->canAdd();
         $option = $options["action"];
+
+        // Add multi delete
+        $item = &$option->add("multidelete");
+        $item->Body = "<button type=\"button\" class=\"ew-action ew-multi-delete\" title=\"" . HtmlTitle($Language->phrase("DeleteSelectedLink")) . "\" data-caption=\"" . HtmlTitle($Language->phrase("DeleteSelectedLink")) . "\" form=\"fsales_order_detaillist\" data-ew-action=\"submit\" data-url=\"" . GetUrl($this->MultiDeleteUrl) . "\"data-data='{\"action\":\"show\"}'>" . $Language->phrase("DeleteSelectedLink") . "</button>";
+        $item->Visible = $Security->canDelete();
 
         // Show column list for column visibility
         if ($this->UseColumnVisibility) {
@@ -1511,6 +1550,103 @@ class SalesOrderDetailList extends SalesOrderDetail
         }
     }
 
+    // Get export HTML tag
+    protected function getExportTag($type, $custom = false)
+    {
+        global $Language;
+        $pageUrl = $this->pageUrl();
+        $exportUrl = GetUrl($pageUrl . "export=" . $type . ($custom ? "&amp;custom=1" : ""));
+        if (SameText($type, "excel")) {
+            if ($custom) {
+                return "<button type=\"button\" class=\"btn btn-default ew-export-link ew-excel\" title=\"" . HtmlEncode($Language->phrase("ExportToExcelText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToExcelText")) . "\" form=\"fsales_order_detaillist\" data-url=\"$exportUrl\" data-ew-action=\"export\" data-export=\"excel\" data-custom=\"true\" data-export-selected=\"false\">" . $Language->phrase("ExportToExcel") . "</button>";
+            } else {
+                return "<a href=\"$exportUrl\" class=\"btn btn-default ew-export-link ew-excel\" title=\"" . HtmlEncode($Language->phrase("ExportToExcelText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToExcelText")) . "\">" . $Language->phrase("ExportToExcel") . "</a>";
+            }
+        } elseif (SameText($type, "word")) {
+            if ($custom) {
+                return "<button type=\"button\" class=\"btn btn-default ew-export-link ew-word\" title=\"" . HtmlEncode($Language->phrase("ExportToWordText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToWordText")) . "\" form=\"fsales_order_detaillist\" data-url=\"$exportUrl\" data-ew-action=\"export\" data-export=\"word\" data-custom=\"true\" data-export-selected=\"false\">" . $Language->phrase("ExportToWord") . "</button>";
+            } else {
+                return "<a href=\"$exportUrl\" class=\"btn btn-default ew-export-link ew-word\" title=\"" . HtmlEncode($Language->phrase("ExportToWordText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToWordText")) . "\">" . $Language->phrase("ExportToWord") . "</a>";
+            }
+        } elseif (SameText($type, "pdf")) {
+            if ($custom) {
+                return "<button type=\"button\" class=\"btn btn-default ew-export-link ew-pdf\" title=\"" . HtmlEncode($Language->phrase("ExportToPdfText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToPdfText")) . "\" form=\"fsales_order_detaillist\" data-url=\"$exportUrl\" data-ew-action=\"export\" data-export=\"pdf\" data-custom=\"true\" data-export-selected=\"false\">" . $Language->phrase("ExportToPdf") . "</button>";
+            } else {
+                return "<a href=\"$exportUrl\" class=\"btn btn-default ew-export-link ew-pdf\" title=\"" . HtmlEncode($Language->phrase("ExportToPdfText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToPdfText")) . "\">" . $Language->phrase("ExportToPdf") . "</a>";
+            }
+        } elseif (SameText($type, "html")) {
+            return "<a href=\"$exportUrl\" class=\"btn btn-default ew-export-link ew-html\" title=\"" . HtmlEncode($Language->phrase("ExportToHtmlText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToHtmlText")) . "\">" . $Language->phrase("ExportToHtml") . "</a>";
+        } elseif (SameText($type, "xml")) {
+            return "<a href=\"$exportUrl\" class=\"btn btn-default ew-export-link ew-xml\" title=\"" . HtmlEncode($Language->phrase("ExportToXmlText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToXmlText")) . "\">" . $Language->phrase("ExportToXml") . "</a>";
+        } elseif (SameText($type, "csv")) {
+            return "<a href=\"$exportUrl\" class=\"btn btn-default ew-export-link ew-csv\" title=\"" . HtmlEncode($Language->phrase("ExportToCsvText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToCsvText")) . "\">" . $Language->phrase("ExportToCsv") . "</a>";
+        } elseif (SameText($type, "email")) {
+            $url = $custom ? ' data-url="' . $exportUrl . '"' : '';
+            return '<button type="button" class="btn btn-default ew-export-link ew-email" title="' . $Language->phrase("ExportToEmailText") . '" data-caption="' . $Language->phrase("ExportToEmailText") . '" form="fsales_order_detaillist" data-ew-action="email" data-hdr="' . $Language->phrase("ExportToEmailText") . '" data-sel="false"' . $url . '>' . $Language->phrase("ExportToEmail") . '</button>';
+        } elseif (SameText($type, "print")) {
+            return "<a href=\"$exportUrl\" class=\"btn btn-default ew-export-link ew-print\" title=\"" . HtmlEncode($Language->phrase("ExportToPrintText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToPrintText")) . "\">" . $Language->phrase("PrinterFriendly") . "</a>";
+        }
+    }
+
+    // Set up export options
+    protected function setupExportOptions()
+    {
+        global $Language;
+
+        // Printer friendly
+        $item = &$this->ExportOptions->add("print");
+        $item->Body = $this->getExportTag("print");
+        $item->Visible = true;
+
+        // Export to Excel
+        $item = &$this->ExportOptions->add("excel");
+        $item->Body = $this->getExportTag("excel");
+        $item->Visible = true;
+
+        // Export to Word
+        $item = &$this->ExportOptions->add("word");
+        $item->Body = $this->getExportTag("word");
+        $item->Visible = false;
+
+        // Export to HTML
+        $item = &$this->ExportOptions->add("html");
+        $item->Body = $this->getExportTag("html");
+        $item->Visible = false;
+
+        // Export to XML
+        $item = &$this->ExportOptions->add("xml");
+        $item->Body = $this->getExportTag("xml");
+        $item->Visible = false;
+
+        // Export to CSV
+        $item = &$this->ExportOptions->add("csv");
+        $item->Body = $this->getExportTag("csv");
+        $item->Visible = true;
+
+        // Export to PDF
+        $item = &$this->ExportOptions->add("pdf");
+        $item->Body = $this->getExportTag("pdf");
+        $item->Visible = false;
+
+        // Export to Email
+        $item = &$this->ExportOptions->add("email");
+        $item->Body = $this->getExportTag("email");
+        $item->Visible = false;
+
+        // Drop down button for export
+        $this->ExportOptions->UseButtonGroup = true;
+        $this->ExportOptions->UseDropDownButton = true;
+        if ($this->ExportOptions->UseButtonGroup && IsMobile()) {
+            $this->ExportOptions->UseDropDownButton = true;
+        }
+        $this->ExportOptions->DropDownButtonPhrase = $Language->phrase("ButtonExport");
+
+        // Add group option item
+        $item = &$this->ExportOptions->addGroupOption();
+        $item->Body = "";
+        $item->Visible = false;
+    }
+
     // Set up search options
     protected function setupSearchOptions()
     {
@@ -1532,6 +1668,10 @@ class SalesOrderDetailList extends SalesOrderDetail
         if ($this->isExport() || $this->CurrentAction) {
             $this->SearchOptions->hideAllOptions();
         }
+        if (!$Security->canSearch()) {
+            $this->SearchOptions->hideAllOptions();
+            $this->FilterOptions->hideAllOptions();
+        }
     }
 
     // Check if any search fields
@@ -1545,6 +1685,102 @@ class SalesOrderDetailList extends SalesOrderDetail
     {
         if (!$this->hasSearchFields() && $this->SearchOptions["searchtoggle"]) {
             $this->SearchOptions["searchtoggle"]->Visible = false;
+        }
+    }
+
+    /**
+    * Export data in HTML/CSV/Word/Excel/XML/Email/PDF format
+    *
+    * @param bool $return Return the data rather than output it
+    * @return mixed
+    */
+    public function exportData($return = false)
+    {
+        global $Language;
+        $utf8 = SameText(Config("PROJECT_CHARSET"), "utf-8");
+
+        // Load recordset
+        $this->TotalRecords = $this->listRecordCount();
+        $this->StartRecord = 1;
+
+        // Export all
+        if ($this->ExportAll) {
+            if (Config("EXPORT_ALL_TIME_LIMIT") >= 0) {
+                @set_time_limit(Config("EXPORT_ALL_TIME_LIMIT"));
+            }
+            $this->DisplayRecords = $this->TotalRecords;
+            $this->StopRecord = $this->TotalRecords;
+        } else { // Export one page only
+            $this->setupStartRecord(); // Set up start record position
+            // Set the last record to display
+            if ($this->DisplayRecords <= 0) {
+                $this->StopRecord = $this->TotalRecords;
+            } else {
+                $this->StopRecord = $this->StartRecord + $this->DisplayRecords - 1;
+            }
+        }
+        $rs = $this->loadRecordset($this->StartRecord - 1, $this->DisplayRecords <= 0 ? $this->TotalRecords : $this->DisplayRecords);
+        $this->ExportDoc = GetExportDocument($this, "h");
+        $doc = &$this->ExportDoc;
+        if (!$doc) {
+            $this->setFailureMessage($Language->phrase("ExportClassNotFound")); // Export class not found
+        }
+        if (!$rs || !$doc) {
+            RemoveHeader("Content-Type"); // Remove header
+            RemoveHeader("Content-Disposition");
+            $this->showMessage();
+            return;
+        }
+        $this->StartRecord = 1;
+        $this->StopRecord = $this->DisplayRecords <= 0 ? $this->TotalRecords : $this->DisplayRecords;
+
+        // Call Page Exporting server event
+        $this->ExportDoc->ExportCustom = !$this->pageExporting();
+        $header = $this->PageHeader;
+        $this->pageDataRendering($header);
+        $doc->Text .= $header;
+        $this->exportDocument($doc, $rs, $this->StartRecord, $this->StopRecord, "");
+        $footer = $this->PageFooter;
+        $this->pageDataRendered($footer);
+        $doc->Text .= $footer;
+
+        // Close recordset
+        $rs->close();
+
+        // Call Page Exported server event
+        $this->pageExported();
+
+        // Export header and footer
+        $doc->exportHeaderAndFooter();
+
+        // Clean output buffer (without destroying output buffer)
+        $buffer = ob_get_contents(); // Save the output buffer
+        if (!Config("DEBUG") && $buffer) {
+            ob_clean();
+        }
+
+        // Write debug message if enabled
+        if (Config("DEBUG") && !$this->isExport("pdf")) {
+            echo GetDebugMessage();
+        }
+
+        // Output data
+        if ($this->isExport("email")) {
+            // Export-to-email disabled
+        } else {
+            $doc->export();
+            if ($return) {
+                RemoveHeader("Content-Type"); // Remove header
+                RemoveHeader("Content-Disposition");
+                $content = ob_get_contents();
+                if ($content) {
+                    ob_clean();
+                }
+                if ($buffer) {
+                    echo $buffer; // Resume the output buffer
+                }
+                return $content;
+            }
         }
     }
 

@@ -159,6 +159,7 @@ class CustomersList extends Customers
     public function __construct()
     {
         global $Language, $DashboardReport, $DebugTimer;
+        global $UserTable;
 
         // Initialize
         $GLOBALS["Page"] = &$this;
@@ -198,6 +199,9 @@ class CustomersList extends Customers
 
         // Open connection
         $GLOBALS["Conn"] = $GLOBALS["Conn"] ?? $this->getConnection();
+
+        // User table object
+        $UserTable = Container("usertable");
 
         // List options
         $this->ListOptions = new ListOptions(["Tag" => "td", "TableVar" => $this->TableVar]);
@@ -574,6 +578,31 @@ class CustomersList extends Customers
 
         // Use layout
         $this->UseLayout = $this->UseLayout && ConvertToBool(Param("layout", true));
+
+        // Get export parameters
+        $custom = "";
+        if (Param("export") !== null) {
+            $this->Export = Param("export");
+            $custom = Param("custom", "");
+        } elseif (IsPost()) {
+            if (Post("exporttype") !== null) {
+                $this->Export = Post("exporttype");
+            }
+            $custom = Post("custom", "");
+        } elseif (Get("cmd") == "json") {
+            $this->Export = Get("cmd");
+        } else {
+            $this->setExportReturnUrl(CurrentUrl());
+        }
+        $ExportFileName = $this->TableVar; // Get export file, used in header
+
+        // Get custom export parameters
+        if ($this->isExport() && $custom != "") {
+            $this->CustomExport = $this->Export;
+            $this->Export = "print";
+        }
+        $CustomExportType = $this->CustomExport;
+        $ExportType = $this->Export; // Get export parameter, used in header
         $this->CurrentAction = Param("action"); // Set up current action
 
         // Get grid add count
@@ -584,11 +613,14 @@ class CustomersList extends Customers
 
         // Set up list options
         $this->setupListOptions();
+
+        // Setup export options
+        $this->setupExportOptions();
         $this->customer_id->setVisibility();
-        $this->name->Visible = false;
-        $this->phone->Visible = false;
-        $this->_email->Visible = false;
-        $this->address->Visible = false;
+        $this->name->setVisibility();
+        $this->phone->setVisibility();
+        $this->_email->setVisibility();
+        $this->address->setVisibility();
         $this->_profile->setVisibility();
         $this->state->setVisibility();
         $this->user_id->setVisibility();
@@ -666,8 +698,33 @@ class CustomersList extends Customers
                 $this->OtherOptions->hideAllOptions();
             }
 
+            // Get default search criteria
+            AddFilter($this->DefaultSearchWhere, $this->basicSearchWhere(true));
+
+            // Get basic search values
+            $this->loadBasicSearchValues();
+
+            // Process filter list
+            if ($this->processFilterList()) {
+                $this->terminate();
+                return;
+            }
+
+            // Restore search parms from Session if not searching / reset / export
+            if (($this->isExport() || $this->Command != "search" && $this->Command != "reset" && $this->Command != "resetall") && $this->Command != "json" && $this->checkSearchParms()) {
+                $this->restoreSearchParms();
+            }
+
+            // Call Recordset SearchValidated event
+            $this->recordsetSearchValidated();
+
             // Set up sorting order
             $this->setupSortOrder();
+
+            // Get basic search criteria
+            if (!$this->hasInvalidFields()) {
+                $srchBasic = $this->basicSearchWhere();
+            }
         }
 
         // Restore display records
@@ -683,8 +740,36 @@ class CustomersList extends Customers
             $this->loadSortOrder();
         }
 
+        // Load search default if no existing search criteria
+        if (!$this->checkSearchParms()) {
+            // Load basic search from default
+            $this->BasicSearch->loadDefault();
+            if ($this->BasicSearch->Keyword != "") {
+                $srchBasic = $this->basicSearchWhere();
+            }
+        }
+
+        // Build search criteria
+        AddFilter($this->SearchWhere, $srchAdvanced);
+        AddFilter($this->SearchWhere, $srchBasic);
+
+        // Call Recordset_Searching event
+        $this->recordsetSearching($this->SearchWhere);
+
+        // Save search criteria
+        if ($this->Command == "search" && !$this->RestoreSearch) {
+            $this->setSearchWhere($this->SearchWhere); // Save to Session
+            $this->StartRecord = 1; // Reset start record counter
+            $this->setStartRecordNumber($this->StartRecord);
+        } elseif ($this->Command != "json") {
+            $this->SearchWhere = $this->getSearchWhere();
+        }
+
         // Build filter
         $filter = "";
+        if (!$Security->canList()) {
+            $filter = "(0=1)"; // Filter all records
+        }
         AddFilter($filter, $this->DbDetailFilter);
         AddFilter($filter, $this->SearchWhere);
 
@@ -695,6 +780,13 @@ class CustomersList extends Customers
         } else {
             $this->setSessionWhere($filter);
             $this->CurrentFilter = "";
+        }
+
+        // Export data only
+        if (!$this->CustomExport && in_array($this->Export, array_keys(Config("EXPORT_CLASSES")))) {
+            $this->exportData();
+            $this->terminate();
+            return;
         }
         if ($this->isGridAdd()) {
             $this->CurrentFilter = "0=1";
@@ -715,6 +807,9 @@ class CustomersList extends Customers
 
             // Set no record found message
             if (!$this->CurrentAction && $this->TotalRecords == 0) {
+                if (!$Security->canList()) {
+                    $this->setWarningMessage(DeniedMessage());
+                }
                 if ($this->SearchWhere == "0=101") {
                     $this->setWarningMessage($Language->phrase("EnterSearchCriteria"));
                 } else {
@@ -756,6 +851,9 @@ class CustomersList extends Customers
 
         // Set LoginStatus / Page_Rendering / Page_Render
         if (!IsApi() && !$this->isTerminated()) {
+            // Setup login status
+            SetupLoginStatus();
+
             // Pass login status to client side
             SetClientVar("login", LoginStatus());
 
@@ -826,6 +924,204 @@ class CustomersList extends Customers
         return $wrkFilter;
     }
 
+    // Get list of filters
+    public function getFilterList()
+    {
+        global $UserProfile;
+
+        // Initialize
+        $filterList = "";
+        $savedFilterList = "";
+        $filterList = Concat($filterList, $this->customer_id->AdvancedSearch->toJson(), ","); // Field customer_id
+        $filterList = Concat($filterList, $this->name->AdvancedSearch->toJson(), ","); // Field name
+        $filterList = Concat($filterList, $this->phone->AdvancedSearch->toJson(), ","); // Field phone
+        $filterList = Concat($filterList, $this->_email->AdvancedSearch->toJson(), ","); // Field email
+        $filterList = Concat($filterList, $this->address->AdvancedSearch->toJson(), ","); // Field address
+        $filterList = Concat($filterList, $this->_profile->AdvancedSearch->toJson(), ","); // Field profile
+        $filterList = Concat($filterList, $this->state->AdvancedSearch->toJson(), ","); // Field state
+        $filterList = Concat($filterList, $this->user_id->AdvancedSearch->toJson(), ","); // Field user_id
+        if ($this->BasicSearch->Keyword != "") {
+            $wrk = "\"" . Config("TABLE_BASIC_SEARCH") . "\":\"" . JsEncode($this->BasicSearch->Keyword) . "\",\"" . Config("TABLE_BASIC_SEARCH_TYPE") . "\":\"" . JsEncode($this->BasicSearch->Type) . "\"";
+            $filterList = Concat($filterList, $wrk, ",");
+        }
+
+        // Return filter list in JSON
+        if ($filterList != "") {
+            $filterList = "\"data\":{" . $filterList . "}";
+        }
+        if ($savedFilterList != "") {
+            $filterList = Concat($filterList, "\"filters\":" . $savedFilterList, ",");
+        }
+        return ($filterList != "") ? "{" . $filterList . "}" : "null";
+    }
+
+    // Process filter list
+    protected function processFilterList()
+    {
+        global $UserProfile;
+        if (Post("ajax") == "savefilters") { // Save filter request (Ajax)
+            $filters = Post("filters");
+            $UserProfile->setSearchFilters(CurrentUserName(), "fcustomerssrch", $filters);
+            WriteJson([["success" => true]]); // Success
+            return true;
+        } elseif (Post("cmd") == "resetfilter") {
+            $this->restoreFilterList();
+        }
+        return false;
+    }
+
+    // Restore list of filters
+    protected function restoreFilterList()
+    {
+        // Return if not reset filter
+        if (Post("cmd") !== "resetfilter") {
+            return false;
+        }
+        $filter = json_decode(Post("filter"), true);
+        $this->Command = "search";
+
+        // Field customer_id
+        $this->customer_id->AdvancedSearch->SearchValue = @$filter["x_customer_id"];
+        $this->customer_id->AdvancedSearch->SearchOperator = @$filter["z_customer_id"];
+        $this->customer_id->AdvancedSearch->SearchCondition = @$filter["v_customer_id"];
+        $this->customer_id->AdvancedSearch->SearchValue2 = @$filter["y_customer_id"];
+        $this->customer_id->AdvancedSearch->SearchOperator2 = @$filter["w_customer_id"];
+        $this->customer_id->AdvancedSearch->save();
+
+        // Field name
+        $this->name->AdvancedSearch->SearchValue = @$filter["x_name"];
+        $this->name->AdvancedSearch->SearchOperator = @$filter["z_name"];
+        $this->name->AdvancedSearch->SearchCondition = @$filter["v_name"];
+        $this->name->AdvancedSearch->SearchValue2 = @$filter["y_name"];
+        $this->name->AdvancedSearch->SearchOperator2 = @$filter["w_name"];
+        $this->name->AdvancedSearch->save();
+
+        // Field phone
+        $this->phone->AdvancedSearch->SearchValue = @$filter["x_phone"];
+        $this->phone->AdvancedSearch->SearchOperator = @$filter["z_phone"];
+        $this->phone->AdvancedSearch->SearchCondition = @$filter["v_phone"];
+        $this->phone->AdvancedSearch->SearchValue2 = @$filter["y_phone"];
+        $this->phone->AdvancedSearch->SearchOperator2 = @$filter["w_phone"];
+        $this->phone->AdvancedSearch->save();
+
+        // Field email
+        $this->_email->AdvancedSearch->SearchValue = @$filter["x__email"];
+        $this->_email->AdvancedSearch->SearchOperator = @$filter["z__email"];
+        $this->_email->AdvancedSearch->SearchCondition = @$filter["v__email"];
+        $this->_email->AdvancedSearch->SearchValue2 = @$filter["y__email"];
+        $this->_email->AdvancedSearch->SearchOperator2 = @$filter["w__email"];
+        $this->_email->AdvancedSearch->save();
+
+        // Field address
+        $this->address->AdvancedSearch->SearchValue = @$filter["x_address"];
+        $this->address->AdvancedSearch->SearchOperator = @$filter["z_address"];
+        $this->address->AdvancedSearch->SearchCondition = @$filter["v_address"];
+        $this->address->AdvancedSearch->SearchValue2 = @$filter["y_address"];
+        $this->address->AdvancedSearch->SearchOperator2 = @$filter["w_address"];
+        $this->address->AdvancedSearch->save();
+
+        // Field profile
+        $this->_profile->AdvancedSearch->SearchValue = @$filter["x__profile"];
+        $this->_profile->AdvancedSearch->SearchOperator = @$filter["z__profile"];
+        $this->_profile->AdvancedSearch->SearchCondition = @$filter["v__profile"];
+        $this->_profile->AdvancedSearch->SearchValue2 = @$filter["y__profile"];
+        $this->_profile->AdvancedSearch->SearchOperator2 = @$filter["w__profile"];
+        $this->_profile->AdvancedSearch->save();
+
+        // Field state
+        $this->state->AdvancedSearch->SearchValue = @$filter["x_state"];
+        $this->state->AdvancedSearch->SearchOperator = @$filter["z_state"];
+        $this->state->AdvancedSearch->SearchCondition = @$filter["v_state"];
+        $this->state->AdvancedSearch->SearchValue2 = @$filter["y_state"];
+        $this->state->AdvancedSearch->SearchOperator2 = @$filter["w_state"];
+        $this->state->AdvancedSearch->save();
+
+        // Field user_id
+        $this->user_id->AdvancedSearch->SearchValue = @$filter["x_user_id"];
+        $this->user_id->AdvancedSearch->SearchOperator = @$filter["z_user_id"];
+        $this->user_id->AdvancedSearch->SearchCondition = @$filter["v_user_id"];
+        $this->user_id->AdvancedSearch->SearchValue2 = @$filter["y_user_id"];
+        $this->user_id->AdvancedSearch->SearchOperator2 = @$filter["w_user_id"];
+        $this->user_id->AdvancedSearch->save();
+        $this->BasicSearch->setKeyword(@$filter[Config("TABLE_BASIC_SEARCH")]);
+        $this->BasicSearch->setType(@$filter[Config("TABLE_BASIC_SEARCH_TYPE")]);
+    }
+
+    // Return basic search WHERE clause based on search keyword and type
+    protected function basicSearchWhere($default = false)
+    {
+        global $Security;
+        $searchStr = "";
+        if (!$Security->canSearch()) {
+            return "";
+        }
+
+        // Fields to search
+        $searchFlds = [];
+        $searchFlds[] = &$this->name;
+        $searchFlds[] = &$this->phone;
+        $searchFlds[] = &$this->_email;
+        $searchFlds[] = &$this->address;
+        $searchKeyword = $default ? $this->BasicSearch->KeywordDefault : $this->BasicSearch->Keyword;
+        $searchType = $default ? $this->BasicSearch->TypeDefault : $this->BasicSearch->Type;
+
+        // Get search SQL
+        if ($searchKeyword != "") {
+            $ar = $this->BasicSearch->keywordList($default);
+            $searchStr = GetQuickSearchFilter($searchFlds, $ar, $searchType, Config("BASIC_SEARCH_ANY_FIELDS"), $this->Dbid);
+            if (!$default && in_array($this->Command, ["", "reset", "resetall"])) {
+                $this->Command = "search";
+            }
+        }
+        if (!$default && $this->Command == "search") {
+            $this->BasicSearch->setKeyword($searchKeyword);
+            $this->BasicSearch->setType($searchType);
+        }
+        return $searchStr;
+    }
+
+    // Check if search parm exists
+    protected function checkSearchParms()
+    {
+        // Check basic search
+        if ($this->BasicSearch->issetSession()) {
+            return true;
+        }
+        return false;
+    }
+
+    // Clear all search parameters
+    protected function resetSearchParms()
+    {
+        // Clear search WHERE clause
+        $this->SearchWhere = "";
+        $this->setSearchWhere($this->SearchWhere);
+
+        // Clear basic search parameters
+        $this->resetBasicSearchParms();
+    }
+
+    // Load advanced search default values
+    protected function loadAdvancedSearchDefault()
+    {
+        return false;
+    }
+
+    // Clear all basic search parameters
+    protected function resetBasicSearchParms()
+    {
+        $this->BasicSearch->unsetSession();
+    }
+
+    // Restore all search parameters
+    protected function restoreSearchParms()
+    {
+        $this->RestoreSearch = true;
+
+        // Restore basic search values
+        $this->BasicSearch->load();
+    }
+
     // Set up sort parameters
     protected function setupSortOrder()
     {
@@ -834,6 +1130,10 @@ class CustomersList extends Customers
             $this->CurrentOrder = Get("order");
             $this->CurrentOrderType = Get("ordertype", "");
             $this->updateSort($this->customer_id); // customer_id
+            $this->updateSort($this->name); // name
+            $this->updateSort($this->phone); // phone
+            $this->updateSort($this->_email); // email
+            $this->updateSort($this->address); // address
             $this->updateSort($this->_profile); // profile
             $this->updateSort($this->state); // state
             $this->updateSort($this->user_id); // user_id
@@ -867,6 +1167,11 @@ class CustomersList extends Customers
     {
         // Check if reset command
         if (StartsString("reset", $this->Command)) {
+            // Reset search criteria
+            if ($this->Command == "reset" || $this->Command == "resetall") {
+                $this->resetSearchParms();
+            }
+
             // Reset (clear) sorting order
             if ($this->Command == "resetsort") {
                 $orderBy = "";
@@ -901,25 +1206,19 @@ class CustomersList extends Customers
         // "view"
         $item = &$this->ListOptions->add("view");
         $item->CssClass = "text-nowrap";
-        $item->Visible = true;
+        $item->Visible = $Security->canView();
         $item->OnLeft = false;
 
         // "edit"
         $item = &$this->ListOptions->add("edit");
         $item->CssClass = "text-nowrap";
-        $item->Visible = true;
+        $item->Visible = $Security->canEdit();
         $item->OnLeft = false;
 
         // "copy"
         $item = &$this->ListOptions->add("copy");
         $item->CssClass = "text-nowrap";
-        $item->Visible = true;
-        $item->OnLeft = false;
-
-        // "delete"
-        $item = &$this->ListOptions->add("delete");
-        $item->CssClass = "text-nowrap";
-        $item->Visible = true;
+        $item->Visible = $Security->canAdd();
         $item->OnLeft = false;
 
         // List actions
@@ -932,7 +1231,7 @@ class CustomersList extends Customers
 
         // "checkbox"
         $item = &$this->ListOptions->add("checkbox");
-        $item->Visible = false;
+        $item->Visible = $Security->canDelete();
         $item->OnLeft = false;
         $item->Header = "<div class=\"form-check\"><input type=\"checkbox\" name=\"key\" id=\"key\" class=\"form-check-input\" data-ew-action=\"select-all-keys\"></div>";
         if ($item->OnLeft) {
@@ -977,7 +1276,7 @@ class CustomersList extends Customers
             // "view"
             $opt = $this->ListOptions["view"];
             $viewcaption = HtmlTitle($Language->phrase("ViewLink"));
-            if (true) {
+            if ($Security->canView()) {
                 $opt->Body = "<a class=\"ew-row-link ew-view\" title=\"" . $viewcaption . "\" data-caption=\"" . $viewcaption . "\" href=\"" . HtmlEncode(GetUrl($this->ViewUrl)) . "\">" . $Language->phrase("ViewLink") . "</a>";
             } else {
                 $opt->Body = "";
@@ -986,7 +1285,7 @@ class CustomersList extends Customers
             // "edit"
             $opt = $this->ListOptions["edit"];
             $editcaption = HtmlTitle($Language->phrase("EditLink"));
-            if (true) {
+            if ($Security->canEdit()) {
                 $opt->Body = "<a class=\"ew-row-link ew-edit\" title=\"" . HtmlTitle($Language->phrase("EditLink")) . "\" data-caption=\"" . HtmlTitle($Language->phrase("EditLink")) . "\" href=\"" . HtmlEncode(GetUrl($this->EditUrl)) . "\">" . $Language->phrase("EditLink") . "</a>";
             } else {
                 $opt->Body = "";
@@ -995,16 +1294,8 @@ class CustomersList extends Customers
             // "copy"
             $opt = $this->ListOptions["copy"];
             $copycaption = HtmlTitle($Language->phrase("CopyLink"));
-            if (true) {
+            if ($Security->canAdd()) {
                 $opt->Body = "<a class=\"ew-row-link ew-copy\" title=\"" . $copycaption . "\" data-caption=\"" . $copycaption . "\" href=\"" . HtmlEncode(GetUrl($this->CopyUrl)) . "\">" . $Language->phrase("CopyLink") . "</a>";
-            } else {
-                $opt->Body = "";
-            }
-
-            // "delete"
-            $opt = $this->ListOptions["delete"];
-            if (true) {
-                $opt->Body = "<a class=\"ew-row-link ew-delete\" data-ew-action=\"\" title=\"" . HtmlTitle($Language->phrase("DeleteLink")) . "\" data-caption=\"" . HtmlTitle($Language->phrase("DeleteLink")) . "\" href=\"" . HtmlEncode(GetUrl($this->DeleteUrl)) . "\">" . $Language->phrase("DeleteLink") . "</a>";
             } else {
                 $opt->Body = "";
             }
@@ -1071,8 +1362,13 @@ class CustomersList extends Customers
         $item = &$option->add("add");
         $addcaption = HtmlTitle($Language->phrase("AddLink"));
         $item->Body = "<a class=\"ew-add-edit ew-add\" title=\"" . $addcaption . "\" data-caption=\"" . $addcaption . "\" href=\"" . HtmlEncode(GetUrl($this->AddUrl)) . "\">" . $Language->phrase("AddLink") . "</a>";
-        $item->Visible = $this->AddUrl != "";
+        $item->Visible = $this->AddUrl != "" && $Security->canAdd();
         $option = $options["action"];
+
+        // Add multi delete
+        $item = &$option->add("multidelete");
+        $item->Body = "<button type=\"button\" class=\"ew-action ew-multi-delete\" title=\"" . HtmlTitle($Language->phrase("DeleteSelectedLink")) . "\" data-caption=\"" . HtmlTitle($Language->phrase("DeleteSelectedLink")) . "\" form=\"fcustomerslist\" data-ew-action=\"submit\" data-url=\"" . GetUrl($this->MultiDeleteUrl) . "\"data-data='{\"action\":\"show\"}'>" . $Language->phrase("DeleteSelectedLink") . "</button>";
+        $item->Visible = $Security->canDelete();
 
         // Show column list for column visibility
         if ($this->UseColumnVisibility) {
@@ -1081,6 +1377,10 @@ class CustomersList extends Customers
             $item->Body = "";
             $item->Visible = $this->UseColumnVisibility;
             $option->add("customer_id", $this->createColumnOption("customer_id"));
+            $option->add("name", $this->createColumnOption("name"));
+            $option->add("phone", $this->createColumnOption("phone"));
+            $option->add("email", $this->createColumnOption("email"));
+            $option->add("address", $this->createColumnOption("address"));
             $option->add("profile", $this->createColumnOption("profile"));
             $option->add("state", $this->createColumnOption("state"));
             $option->add("user_id", $this->createColumnOption("user_id"));
@@ -1104,10 +1404,10 @@ class CustomersList extends Customers
         // Filter button
         $item = &$this->FilterOptions->add("savecurrentfilter");
         $item->Body = "<a class=\"ew-save-filter\" data-form=\"fcustomerssrch\" data-ew-action=\"none\">" . $Language->phrase("SaveCurrentFilter") . "</a>";
-        $item->Visible = false;
+        $item->Visible = true;
         $item = &$this->FilterOptions->add("deletefilter");
         $item->Body = "<a class=\"ew-delete-filter\" data-form=\"fcustomerssrch\" data-ew-action=\"none\">" . $Language->phrase("DeleteFilter") . "</a>";
-        $item->Visible = false;
+        $item->Visible = true;
         $this->FilterOptions->UseDropDownButton = true;
         $this->FilterOptions->UseButtonGroup = !$this->FilterOptions->UseDropDownButton;
         $this->FilterOptions->DropDownButtonPhrase = $Language->phrase("Filters");
@@ -1248,6 +1548,16 @@ class CustomersList extends Customers
             }
         }
         return false; // Not ajax request
+    }
+
+    // Load basic search values
+    protected function loadBasicSearchValues()
+    {
+        $this->BasicSearch->setKeyword(Get(Config("TABLE_BASIC_SEARCH"), ""), false);
+        if ($this->BasicSearch->Keyword != "" && $this->Command == "") {
+            $this->Command = "search";
+        }
+        $this->BasicSearch->setType(Get(Config("TABLE_BASIC_SEARCH_TYPE"), ""), false);
     }
 
     // Load recordset
@@ -1416,6 +1726,22 @@ class CustomersList extends Customers
             $this->customer_id->ViewValue = $this->customer_id->CurrentValue;
             $this->customer_id->ViewCustomAttributes = "";
 
+            // name
+            $this->name->ViewValue = $this->name->CurrentValue;
+            $this->name->ViewCustomAttributes = "";
+
+            // phone
+            $this->phone->ViewValue = $this->phone->CurrentValue;
+            $this->phone->ViewCustomAttributes = "";
+
+            // email
+            $this->_email->ViewValue = $this->_email->CurrentValue;
+            $this->_email->ViewCustomAttributes = "";
+
+            // address
+            $this->address->ViewValue = $this->address->CurrentValue;
+            $this->address->ViewCustomAttributes = "";
+
             // profile
             $this->_profile->ViewValue = $this->_profile->CurrentValue;
             $this->_profile->ViewValue = FormatNumber($this->_profile->ViewValue, $this->_profile->formatPattern());
@@ -1455,6 +1781,26 @@ class CustomersList extends Customers
             $this->customer_id->HrefValue = "";
             $this->customer_id->TooltipValue = "";
 
+            // name
+            $this->name->LinkCustomAttributes = "";
+            $this->name->HrefValue = "";
+            $this->name->TooltipValue = "";
+
+            // phone
+            $this->phone->LinkCustomAttributes = "";
+            $this->phone->HrefValue = "";
+            $this->phone->TooltipValue = "";
+
+            // email
+            $this->_email->LinkCustomAttributes = "";
+            $this->_email->HrefValue = "";
+            $this->_email->TooltipValue = "";
+
+            // address
+            $this->address->LinkCustomAttributes = "";
+            $this->address->HrefValue = "";
+            $this->address->TooltipValue = "";
+
             // profile
             $this->_profile->LinkCustomAttributes = "";
             $this->_profile->HrefValue = "";
@@ -1477,12 +1823,120 @@ class CustomersList extends Customers
         }
     }
 
+    // Get export HTML tag
+    protected function getExportTag($type, $custom = false)
+    {
+        global $Language;
+        $pageUrl = $this->pageUrl();
+        $exportUrl = GetUrl($pageUrl . "export=" . $type . ($custom ? "&amp;custom=1" : ""));
+        if (SameText($type, "excel")) {
+            if ($custom) {
+                return "<button type=\"button\" class=\"btn btn-default ew-export-link ew-excel\" title=\"" . HtmlEncode($Language->phrase("ExportToExcelText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToExcelText")) . "\" form=\"fcustomerslist\" data-url=\"$exportUrl\" data-ew-action=\"export\" data-export=\"excel\" data-custom=\"true\" data-export-selected=\"false\">" . $Language->phrase("ExportToExcel") . "</button>";
+            } else {
+                return "<a href=\"$exportUrl\" class=\"btn btn-default ew-export-link ew-excel\" title=\"" . HtmlEncode($Language->phrase("ExportToExcelText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToExcelText")) . "\">" . $Language->phrase("ExportToExcel") . "</a>";
+            }
+        } elseif (SameText($type, "word")) {
+            if ($custom) {
+                return "<button type=\"button\" class=\"btn btn-default ew-export-link ew-word\" title=\"" . HtmlEncode($Language->phrase("ExportToWordText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToWordText")) . "\" form=\"fcustomerslist\" data-url=\"$exportUrl\" data-ew-action=\"export\" data-export=\"word\" data-custom=\"true\" data-export-selected=\"false\">" . $Language->phrase("ExportToWord") . "</button>";
+            } else {
+                return "<a href=\"$exportUrl\" class=\"btn btn-default ew-export-link ew-word\" title=\"" . HtmlEncode($Language->phrase("ExportToWordText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToWordText")) . "\">" . $Language->phrase("ExportToWord") . "</a>";
+            }
+        } elseif (SameText($type, "pdf")) {
+            if ($custom) {
+                return "<button type=\"button\" class=\"btn btn-default ew-export-link ew-pdf\" title=\"" . HtmlEncode($Language->phrase("ExportToPdfText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToPdfText")) . "\" form=\"fcustomerslist\" data-url=\"$exportUrl\" data-ew-action=\"export\" data-export=\"pdf\" data-custom=\"true\" data-export-selected=\"false\">" . $Language->phrase("ExportToPdf") . "</button>";
+            } else {
+                return "<a href=\"$exportUrl\" class=\"btn btn-default ew-export-link ew-pdf\" title=\"" . HtmlEncode($Language->phrase("ExportToPdfText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToPdfText")) . "\">" . $Language->phrase("ExportToPdf") . "</a>";
+            }
+        } elseif (SameText($type, "html")) {
+            return "<a href=\"$exportUrl\" class=\"btn btn-default ew-export-link ew-html\" title=\"" . HtmlEncode($Language->phrase("ExportToHtmlText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToHtmlText")) . "\">" . $Language->phrase("ExportToHtml") . "</a>";
+        } elseif (SameText($type, "xml")) {
+            return "<a href=\"$exportUrl\" class=\"btn btn-default ew-export-link ew-xml\" title=\"" . HtmlEncode($Language->phrase("ExportToXmlText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToXmlText")) . "\">" . $Language->phrase("ExportToXml") . "</a>";
+        } elseif (SameText($type, "csv")) {
+            return "<a href=\"$exportUrl\" class=\"btn btn-default ew-export-link ew-csv\" title=\"" . HtmlEncode($Language->phrase("ExportToCsvText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToCsvText")) . "\">" . $Language->phrase("ExportToCsv") . "</a>";
+        } elseif (SameText($type, "email")) {
+            $url = $custom ? ' data-url="' . $exportUrl . '"' : '';
+            return '<button type="button" class="btn btn-default ew-export-link ew-email" title="' . $Language->phrase("ExportToEmailText") . '" data-caption="' . $Language->phrase("ExportToEmailText") . '" form="fcustomerslist" data-ew-action="email" data-hdr="' . $Language->phrase("ExportToEmailText") . '" data-sel="false"' . $url . '>' . $Language->phrase("ExportToEmail") . '</button>';
+        } elseif (SameText($type, "print")) {
+            return "<a href=\"$exportUrl\" class=\"btn btn-default ew-export-link ew-print\" title=\"" . HtmlEncode($Language->phrase("ExportToPrintText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToPrintText")) . "\">" . $Language->phrase("PrinterFriendly") . "</a>";
+        }
+    }
+
+    // Set up export options
+    protected function setupExportOptions()
+    {
+        global $Language;
+
+        // Printer friendly
+        $item = &$this->ExportOptions->add("print");
+        $item->Body = $this->getExportTag("print");
+        $item->Visible = true;
+
+        // Export to Excel
+        $item = &$this->ExportOptions->add("excel");
+        $item->Body = $this->getExportTag("excel");
+        $item->Visible = true;
+
+        // Export to Word
+        $item = &$this->ExportOptions->add("word");
+        $item->Body = $this->getExportTag("word");
+        $item->Visible = false;
+
+        // Export to HTML
+        $item = &$this->ExportOptions->add("html");
+        $item->Body = $this->getExportTag("html");
+        $item->Visible = false;
+
+        // Export to XML
+        $item = &$this->ExportOptions->add("xml");
+        $item->Body = $this->getExportTag("xml");
+        $item->Visible = false;
+
+        // Export to CSV
+        $item = &$this->ExportOptions->add("csv");
+        $item->Body = $this->getExportTag("csv");
+        $item->Visible = true;
+
+        // Export to PDF
+        $item = &$this->ExportOptions->add("pdf");
+        $item->Body = $this->getExportTag("pdf");
+        $item->Visible = false;
+
+        // Export to Email
+        $item = &$this->ExportOptions->add("email");
+        $item->Body = $this->getExportTag("email");
+        $item->Visible = false;
+
+        // Drop down button for export
+        $this->ExportOptions->UseButtonGroup = true;
+        $this->ExportOptions->UseDropDownButton = true;
+        if ($this->ExportOptions->UseButtonGroup && IsMobile()) {
+            $this->ExportOptions->UseDropDownButton = true;
+        }
+        $this->ExportOptions->DropDownButtonPhrase = $Language->phrase("ButtonExport");
+
+        // Add group option item
+        $item = &$this->ExportOptions->addGroupOption();
+        $item->Body = "";
+        $item->Visible = false;
+    }
+
     // Set up search options
     protected function setupSearchOptions()
     {
         global $Language, $Security;
         $pageUrl = $this->pageUrl();
         $this->SearchOptions = new ListOptions(["TagClassName" => "ew-search-option"]);
+
+        // Search button
+        $item = &$this->SearchOptions->add("searchtoggle");
+        $searchToggleClass = ($this->SearchWhere != "") ? " active" : " active";
+        $item->Body = "<a class=\"btn btn-default ew-search-toggle" . $searchToggleClass . "\" role=\"button\" title=\"" . $Language->phrase("SearchPanel") . "\" data-caption=\"" . $Language->phrase("SearchPanel") . "\" data-ew-action=\"search-toggle\" data-form=\"fcustomerssrch\" aria-pressed=\"" . ($searchToggleClass == " active" ? "true" : "false") . "\">" . $Language->phrase("SearchLink") . "</a>";
+        $item->Visible = true;
+
+        // Show all button
+        $item = &$this->SearchOptions->add("showall");
+        $item->Body = "<a class=\"btn btn-default ew-show-all\" title=\"" . $Language->phrase("ShowAll") . "\" data-caption=\"" . $Language->phrase("ShowAll") . "\" href=\"" . $pageUrl . "cmd=reset\">" . $Language->phrase("ShowAllBtn") . "</a>";
+        $item->Visible = ($this->SearchWhere != $this->DefaultSearchWhere && $this->SearchWhere != "0=101");
 
         // Button group for search
         $this->SearchOptions->UseDropDownButton = false;
@@ -1498,12 +1952,16 @@ class CustomersList extends Customers
         if ($this->isExport() || $this->CurrentAction) {
             $this->SearchOptions->hideAllOptions();
         }
+        if (!$Security->canSearch()) {
+            $this->SearchOptions->hideAllOptions();
+            $this->FilterOptions->hideAllOptions();
+        }
     }
 
     // Check if any search fields
     public function hasSearchFields()
     {
-        return false;
+        return true;
     }
 
     // Render search options
@@ -1511,6 +1969,102 @@ class CustomersList extends Customers
     {
         if (!$this->hasSearchFields() && $this->SearchOptions["searchtoggle"]) {
             $this->SearchOptions["searchtoggle"]->Visible = false;
+        }
+    }
+
+    /**
+    * Export data in HTML/CSV/Word/Excel/XML/Email/PDF format
+    *
+    * @param bool $return Return the data rather than output it
+    * @return mixed
+    */
+    public function exportData($return = false)
+    {
+        global $Language;
+        $utf8 = SameText(Config("PROJECT_CHARSET"), "utf-8");
+
+        // Load recordset
+        $this->TotalRecords = $this->listRecordCount();
+        $this->StartRecord = 1;
+
+        // Export all
+        if ($this->ExportAll) {
+            if (Config("EXPORT_ALL_TIME_LIMIT") >= 0) {
+                @set_time_limit(Config("EXPORT_ALL_TIME_LIMIT"));
+            }
+            $this->DisplayRecords = $this->TotalRecords;
+            $this->StopRecord = $this->TotalRecords;
+        } else { // Export one page only
+            $this->setupStartRecord(); // Set up start record position
+            // Set the last record to display
+            if ($this->DisplayRecords <= 0) {
+                $this->StopRecord = $this->TotalRecords;
+            } else {
+                $this->StopRecord = $this->StartRecord + $this->DisplayRecords - 1;
+            }
+        }
+        $rs = $this->loadRecordset($this->StartRecord - 1, $this->DisplayRecords <= 0 ? $this->TotalRecords : $this->DisplayRecords);
+        $this->ExportDoc = GetExportDocument($this, "h");
+        $doc = &$this->ExportDoc;
+        if (!$doc) {
+            $this->setFailureMessage($Language->phrase("ExportClassNotFound")); // Export class not found
+        }
+        if (!$rs || !$doc) {
+            RemoveHeader("Content-Type"); // Remove header
+            RemoveHeader("Content-Disposition");
+            $this->showMessage();
+            return;
+        }
+        $this->StartRecord = 1;
+        $this->StopRecord = $this->DisplayRecords <= 0 ? $this->TotalRecords : $this->DisplayRecords;
+
+        // Call Page Exporting server event
+        $this->ExportDoc->ExportCustom = !$this->pageExporting();
+        $header = $this->PageHeader;
+        $this->pageDataRendering($header);
+        $doc->Text .= $header;
+        $this->exportDocument($doc, $rs, $this->StartRecord, $this->StopRecord, "");
+        $footer = $this->PageFooter;
+        $this->pageDataRendered($footer);
+        $doc->Text .= $footer;
+
+        // Close recordset
+        $rs->close();
+
+        // Call Page Exported server event
+        $this->pageExported();
+
+        // Export header and footer
+        $doc->exportHeaderAndFooter();
+
+        // Clean output buffer (without destroying output buffer)
+        $buffer = ob_get_contents(); // Save the output buffer
+        if (!Config("DEBUG") && $buffer) {
+            ob_clean();
+        }
+
+        // Write debug message if enabled
+        if (Config("DEBUG") && !$this->isExport("pdf")) {
+            echo GetDebugMessage();
+        }
+
+        // Output data
+        if ($this->isExport("email")) {
+            // Export-to-email disabled
+        } else {
+            $doc->export();
+            if ($return) {
+                RemoveHeader("Content-Type"); // Remove header
+                RemoveHeader("Content-Disposition");
+                $content = ob_get_contents();
+                if ($content) {
+                    ob_clean();
+                }
+                if ($buffer) {
+                    echo $buffer; // Resume the output buffer
+                }
+                return $content;
+            }
         }
     }
 

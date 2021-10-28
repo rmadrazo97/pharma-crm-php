@@ -153,6 +153,7 @@ class CustomersView extends Customers
     public function __construct()
     {
         global $Language, $DashboardReport, $DebugTimer;
+        global $UserTable;
 
         // Initialize
         $GLOBALS["Page"] = &$this;
@@ -187,6 +188,9 @@ class CustomersView extends Customers
 
         // Open connection
         $GLOBALS["Conn"] = $GLOBALS["Conn"] ?? $this->getConnection();
+
+        // User table object
+        $UserTable = Container("usertable");
 
         // Export options
         $this->ExportOptions = new ListOptions(["TagClassName" => "ew-export-option"]);
@@ -516,7 +520,41 @@ class CustomersView extends Customers
 
         // Use layout
         $this->UseLayout = $this->UseLayout && ConvertToBool(Param("layout", true));
+
+        // Get export parameters
+        $custom = "";
+        if (Param("export") !== null) {
+            $this->Export = Param("export");
+            $custom = Param("custom", "");
+        } elseif (IsPost()) {
+            if (Post("exporttype") !== null) {
+                $this->Export = Post("exporttype");
+            }
+            $custom = Post("custom", "");
+        } elseif (Get("cmd") == "json") {
+            $this->Export = Get("cmd");
+        } else {
+            $this->setExportReturnUrl(CurrentUrl());
+        }
+        $ExportFileName = $this->TableVar; // Get export file, used in header
+        if (Get("customer_id") !== null) {
+            if ($ExportFileName != "") {
+                $ExportFileName .= "_";
+            }
+            $ExportFileName .= Get("customer_id");
+        }
+
+        // Get custom export parameters
+        if ($this->isExport() && $custom != "") {
+            $this->CustomExport = $this->Export;
+            $this->Export = "print";
+        }
+        $CustomExportType = $this->CustomExport;
+        $ExportType = $this->Export; // Get export parameter, used in header
         $this->CurrentAction = Param("action"); // Set up current action
+
+        // Setup export options
+        $this->setupExportOptions();
         $this->customer_id->setVisibility();
         $this->name->setVisibility();
         $this->phone->setVisibility();
@@ -590,6 +628,13 @@ class CustomersView extends Customers
                         }
                     break;
             }
+
+            // Export data only
+            if (!$this->CustomExport && in_array($this->Export, array_keys(Config("EXPORT_CLASSES")))) {
+                $this->exportData();
+                $this->terminate();
+                return;
+            }
         } else {
             $returnUrl = "CustomersList"; // Not page request, return to list
         }
@@ -619,6 +664,9 @@ class CustomersView extends Customers
 
         // Set LoginStatus / Page_Rendering / Page_Render
         if (!IsApi() && !$this->isTerminated()) {
+            // Setup login status
+            SetupLoginStatus();
+
             // Pass login status to client side
             SetClientVar("login", LoginStatus());
 
@@ -652,7 +700,7 @@ class CustomersView extends Customers
         } else {
             $item->Body = "<a class=\"ew-action ew-add\" title=\"" . $addcaption . "\" data-caption=\"" . $addcaption . "\" href=\"" . HtmlEncode(GetUrl($this->AddUrl)) . "\">" . $Language->phrase("ViewPageAddLink") . "</a>";
         }
-        $item->Visible = ($this->AddUrl != "");
+        $item->Visible = ($this->AddUrl != "" && $Security->canAdd());
 
         // Edit
         $item = &$option->add("edit");
@@ -662,7 +710,7 @@ class CustomersView extends Customers
         } else {
             $item->Body = "<a class=\"ew-action ew-edit\" title=\"" . $editcaption . "\" data-caption=\"" . $editcaption . "\" href=\"" . HtmlEncode(GetUrl($this->EditUrl)) . "\">" . $Language->phrase("ViewPageEditLink") . "</a>";
         }
-        $item->Visible = ($this->EditUrl != "");
+        $item->Visible = ($this->EditUrl != "" && $Security->canEdit());
 
         // Copy
         $item = &$option->add("copy");
@@ -672,7 +720,7 @@ class CustomersView extends Customers
         } else {
             $item->Body = "<a class=\"ew-action ew-copy\" title=\"" . $copycaption . "\" data-caption=\"" . $copycaption . "\" href=\"" . HtmlEncode(GetUrl($this->CopyUrl)) . "\">" . $Language->phrase("ViewPageCopyLink") . "</a>";
         }
-        $item->Visible = ($this->CopyUrl != "");
+        $item->Visible = ($this->CopyUrl != "" && $Security->canAdd());
 
         // Delete
         $item = &$option->add("delete");
@@ -681,7 +729,7 @@ class CustomersView extends Customers
         } else {
             $item->Body = "<a class=\"ew-action ew-delete\" title=\"" . HtmlTitle($Language->phrase("ViewPageDeleteLink")) . "\" data-caption=\"" . HtmlTitle($Language->phrase("ViewPageDeleteLink")) . "\" href=\"" . HtmlEncode(GetUrl($this->DeleteUrl)) . "\">" . $Language->phrase("ViewPageDeleteLink") . "</a>";
         }
-        $item->Visible = ($this->DeleteUrl != "");
+        $item->Visible = ($this->DeleteUrl != "" && $Security->canDelete());
 
         // Set up action default
         $option = $options["action"];
@@ -691,6 +739,44 @@ class CustomersView extends Customers
         $item = &$option->addGroupOption();
         $item->Body = "";
         $item->Visible = false;
+    }
+
+    // Load recordset
+    public function loadRecordset($offset = -1, $rowcnt = -1)
+    {
+        // Load List page SQL (QueryBuilder)
+        $sql = $this->getListSql();
+
+        // Load recordset
+        if ($offset > -1) {
+            $sql->setFirstResult($offset);
+        }
+        if ($rowcnt > 0) {
+            $sql->setMaxResults($rowcnt);
+        }
+        $result = $sql->execute();
+        $rs = new Recordset($result, $sql);
+
+        // Call Recordset Selected event
+        $this->recordsetSelected($rs);
+        return $rs;
+    }
+
+    // Load records as associative array
+    public function loadRows($offset = -1, $rowcnt = -1)
+    {
+        // Load List page SQL (QueryBuilder)
+        $sql = $this->getListSql();
+
+        // Load recordset
+        if ($offset > -1) {
+            $sql->setFirstResult($offset);
+        }
+        if ($rowcnt > 0) {
+            $sql->setMaxResults($rowcnt);
+        }
+        $result = $sql->execute();
+        return $result->fetchAll(FetchMode::ASSOCIATIVE);
     }
 
     /**
@@ -894,6 +980,200 @@ class CustomersView extends Customers
         // Call Row Rendered event
         if ($this->RowType != ROWTYPE_AGGREGATEINIT) {
             $this->rowRendered();
+        }
+    }
+
+    // Get export HTML tag
+    protected function getExportTag($type, $custom = false)
+    {
+        global $Language;
+        $pageUrl = $this->pageUrl();
+        $exportUrl = GetUrl($pageUrl . "export=" . $type . ($custom ? "&amp;custom=1" : ""));
+        if (SameText($type, "excel")) {
+            if ($custom) {
+                return "<button type=\"button\" class=\"btn btn-default ew-export-link ew-excel\" title=\"" . HtmlEncode($Language->phrase("ExportToExcelText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToExcelText")) . "\" form=\"fcustomersview\" data-url=\"$exportUrl\" data-ew-action=\"export\" data-export=\"excel\" data-custom=\"true\" data-export-selected=\"false\">" . $Language->phrase("ExportToExcel") . "</button>";
+            } else {
+                return "<a href=\"$exportUrl\" class=\"btn btn-default ew-export-link ew-excel\" title=\"" . HtmlEncode($Language->phrase("ExportToExcelText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToExcelText")) . "\">" . $Language->phrase("ExportToExcel") . "</a>";
+            }
+        } elseif (SameText($type, "word")) {
+            if ($custom) {
+                return "<button type=\"button\" class=\"btn btn-default ew-export-link ew-word\" title=\"" . HtmlEncode($Language->phrase("ExportToWordText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToWordText")) . "\" form=\"fcustomersview\" data-url=\"$exportUrl\" data-ew-action=\"export\" data-export=\"word\" data-custom=\"true\" data-export-selected=\"false\">" . $Language->phrase("ExportToWord") . "</button>";
+            } else {
+                return "<a href=\"$exportUrl\" class=\"btn btn-default ew-export-link ew-word\" title=\"" . HtmlEncode($Language->phrase("ExportToWordText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToWordText")) . "\">" . $Language->phrase("ExportToWord") . "</a>";
+            }
+        } elseif (SameText($type, "pdf")) {
+            if ($custom) {
+                return "<button type=\"button\" class=\"btn btn-default ew-export-link ew-pdf\" title=\"" . HtmlEncode($Language->phrase("ExportToPdfText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToPdfText")) . "\" form=\"fcustomersview\" data-url=\"$exportUrl\" data-ew-action=\"export\" data-export=\"pdf\" data-custom=\"true\" data-export-selected=\"false\">" . $Language->phrase("ExportToPdf") . "</button>";
+            } else {
+                return "<a href=\"$exportUrl\" class=\"btn btn-default ew-export-link ew-pdf\" title=\"" . HtmlEncode($Language->phrase("ExportToPdfText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToPdfText")) . "\">" . $Language->phrase("ExportToPdf") . "</a>";
+            }
+        } elseif (SameText($type, "html")) {
+            return "<a href=\"$exportUrl\" class=\"btn btn-default ew-export-link ew-html\" title=\"" . HtmlEncode($Language->phrase("ExportToHtmlText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToHtmlText")) . "\">" . $Language->phrase("ExportToHtml") . "</a>";
+        } elseif (SameText($type, "xml")) {
+            return "<a href=\"$exportUrl\" class=\"btn btn-default ew-export-link ew-xml\" title=\"" . HtmlEncode($Language->phrase("ExportToXmlText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToXmlText")) . "\">" . $Language->phrase("ExportToXml") . "</a>";
+        } elseif (SameText($type, "csv")) {
+            return "<a href=\"$exportUrl\" class=\"btn btn-default ew-export-link ew-csv\" title=\"" . HtmlEncode($Language->phrase("ExportToCsvText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToCsvText")) . "\">" . $Language->phrase("ExportToCsv") . "</a>";
+        } elseif (SameText($type, "email")) {
+            $url = $custom ? ' data-url="' . $exportUrl . '"' : '';
+            return '<button type="button" class="btn btn-default ew-export-link ew-email" title="' . $Language->phrase("ExportToEmailText") . '" data-caption="' . $Language->phrase("ExportToEmailText") . '" form="fcustomersview" data-ew-action="email" data-hdr="' . $Language->phrase("ExportToEmailText") . '" data-key="' . HtmlEncode(ArrayToJsonAttribute($this->RecKey)) . '" data-sel="false"' . $url . '>' . $Language->phrase("ExportToEmail") . '</button>';
+        } elseif (SameText($type, "print")) {
+            return "<a href=\"$exportUrl\" class=\"btn btn-default ew-export-link ew-print\" title=\"" . HtmlEncode($Language->phrase("ExportToPrintText")) . "\" data-caption=\"" . HtmlEncode($Language->phrase("ExportToPrintText")) . "\">" . $Language->phrase("PrinterFriendly") . "</a>";
+        }
+    }
+
+    // Set up export options
+    protected function setupExportOptions()
+    {
+        global $Language;
+
+        // Printer friendly
+        $item = &$this->ExportOptions->add("print");
+        $item->Body = $this->getExportTag("print");
+        $item->Visible = true;
+
+        // Export to Excel
+        $item = &$this->ExportOptions->add("excel");
+        $item->Body = $this->getExportTag("excel");
+        $item->Visible = true;
+
+        // Export to Word
+        $item = &$this->ExportOptions->add("word");
+        $item->Body = $this->getExportTag("word");
+        $item->Visible = false;
+
+        // Export to HTML
+        $item = &$this->ExportOptions->add("html");
+        $item->Body = $this->getExportTag("html");
+        $item->Visible = false;
+
+        // Export to XML
+        $item = &$this->ExportOptions->add("xml");
+        $item->Body = $this->getExportTag("xml");
+        $item->Visible = false;
+
+        // Export to CSV
+        $item = &$this->ExportOptions->add("csv");
+        $item->Body = $this->getExportTag("csv");
+        $item->Visible = true;
+
+        // Export to PDF
+        $item = &$this->ExportOptions->add("pdf");
+        $item->Body = $this->getExportTag("pdf");
+        $item->Visible = false;
+
+        // Export to Email
+        $item = &$this->ExportOptions->add("email");
+        $item->Body = $this->getExportTag("email");
+        $item->Visible = false;
+
+        // Drop down button for export
+        $this->ExportOptions->UseButtonGroup = true;
+        $this->ExportOptions->UseDropDownButton = true;
+        if ($this->ExportOptions->UseButtonGroup && IsMobile()) {
+            $this->ExportOptions->UseDropDownButton = true;
+        }
+        $this->ExportOptions->DropDownButtonPhrase = $Language->phrase("ButtonExport");
+
+        // Add group option item
+        $item = &$this->ExportOptions->addGroupOption();
+        $item->Body = "";
+        $item->Visible = false;
+
+        // Hide options for export
+        if ($this->isExport()) {
+            $this->ExportOptions->hideAllOptions();
+        }
+    }
+
+    /**
+    * Export data in HTML/CSV/Word/Excel/XML/Email/PDF format
+    *
+    * @param bool $return Return the data rather than output it
+    * @return mixed
+    */
+    public function exportData($return = false)
+    {
+        global $Language;
+        $utf8 = SameText(Config("PROJECT_CHARSET"), "utf-8");
+
+        // Load recordset
+        if (!$this->Recordset) {
+            $this->Recordset = $this->loadRecordset();
+        }
+        $rs = &$this->Recordset;
+        if ($rs) {
+            $this->TotalRecords = $rs->recordCount();
+        }
+        $this->StartRecord = 1;
+        $this->setupStartRecord(); // Set up start record position
+
+        // Set the last record to display
+        if ($this->DisplayRecords <= 0) {
+            $this->StopRecord = $this->TotalRecords;
+        } else {
+            $this->StopRecord = $this->StartRecord + $this->DisplayRecords - 1;
+        }
+        $this->ExportDoc = GetExportDocument($this, "v");
+        $doc = &$this->ExportDoc;
+        if (!$doc) {
+            $this->setFailureMessage($Language->phrase("ExportClassNotFound")); // Export class not found
+        }
+        if (!$rs || !$doc) {
+            RemoveHeader("Content-Type"); // Remove header
+            RemoveHeader("Content-Disposition");
+            $this->showMessage();
+            return;
+        }
+        $this->StartRecord = 1;
+        $this->StopRecord = $this->DisplayRecords <= 0 ? $this->TotalRecords : $this->DisplayRecords;
+
+        // Call Page Exporting server event
+        $this->ExportDoc->ExportCustom = !$this->pageExporting();
+        $header = $this->PageHeader;
+        $this->pageDataRendering($header);
+        $doc->Text .= $header;
+        $this->exportDocument($doc, $rs, $this->StartRecord, $this->StopRecord, "view");
+        $footer = $this->PageFooter;
+        $this->pageDataRendered($footer);
+        $doc->Text .= $footer;
+
+        // Close recordset
+        $rs->close();
+
+        // Call Page Exported server event
+        $this->pageExported();
+
+        // Export header and footer
+        $doc->exportHeaderAndFooter();
+
+        // Clean output buffer (without destroying output buffer)
+        $buffer = ob_get_contents(); // Save the output buffer
+        if (!Config("DEBUG") && $buffer) {
+            ob_clean();
+        }
+
+        // Write debug message if enabled
+        if (Config("DEBUG") && !$this->isExport("pdf")) {
+            echo GetDebugMessage();
+        }
+
+        // Output data
+        if ($this->isExport("email")) {
+            // Export-to-email disabled
+        } else {
+            $doc->export();
+            if ($return) {
+                RemoveHeader("Content-Type"); // Remove header
+                RemoveHeader("Content-Disposition");
+                $content = ob_get_contents();
+                if ($content) {
+                    ob_clean();
+                }
+                if ($buffer) {
+                    echo $buffer; // Resume the output buffer
+                }
+                return $content;
+            }
         }
     }
 

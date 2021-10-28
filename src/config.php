@@ -145,7 +145,7 @@ $CONFIG = [
 
     // General
     "UNFORMAT_YEAR" => 50, // Unformat year
-    "RANDOM_KEY" => 'I0va60Nm5odk4Aat', // Random key for encryption
+    "RANDOM_KEY" => 'lIB0a3TuKIm9qYCu', // Random key for encryption
     "ENCRYPTION_KEY" => '', // Encryption key for data protection
     "PROJECT_STYLESHEET_FILENAME" => "css/pharma.css", // Project stylesheet file name
     "USE_COMPRESSED_STYLESHEET" => true, // Compressed stylesheet
@@ -315,9 +315,9 @@ $CONFIG = [
     "DEFAULT_USER_ID_ALLOW_SECURITY" => 360,
 
     // User table/field names
-    "USER_TABLE_NAME" => "",
-    "LOGIN_USERNAME_FIELD_NAME" => "",
-    "LOGIN_PASSWORD_FIELD_NAME" => "",
+    "USER_TABLE_NAME" => "users",
+    "LOGIN_USERNAME_FIELD_NAME" => "name",
+    "LOGIN_PASSWORD_FIELD_NAME" => "password",
     "USER_ID_FIELD_NAME" => "",
     "PARENT_USER_ID_FIELD_NAME" => "",
     "USER_LEVEL_FIELD_NAME" => "",
@@ -329,9 +329,9 @@ $CONFIG = [
     "USER_IMAGE_CROP" => true,
 
     // User table filters
-    "USER_TABLE_DBID" => "",
-    "USER_TABLE" => "",
-    "USER_NAME_FILTER" => "",
+    "USER_TABLE_DBID" => "DB",
+    "USER_TABLE" => "`users`",
+    "USER_NAME_FILTER" => "(`name` = '%u')",
     "USER_ID_FILTER" => "",
     "USER_EMAIL_FILTER" => "",
     "USER_ACTIVATE_FILTER" => "",

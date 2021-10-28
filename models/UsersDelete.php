@@ -136,6 +136,7 @@ class UsersDelete extends Users
     public function __construct()
     {
         global $Language, $DashboardReport, $DebugTimer;
+        global $UserTable;
 
         // Initialize
         $GLOBALS["Page"] = &$this;
@@ -164,6 +165,9 @@ class UsersDelete extends Users
 
         // Open connection
         $GLOBALS["Conn"] = $GLOBALS["Conn"] ?? $this->getConnection();
+
+        // User table object
+        $UserTable = Container("usertable");
     }
 
     // Get content from stream
@@ -413,6 +417,7 @@ class UsersDelete extends Users
         }
 
         // Set up lookup cache
+        $this->setupLookupOptions($this->state);
 
         // Set up Breadcrumb
         $this->setupBreadcrumb();
@@ -474,6 +479,9 @@ class UsersDelete extends Users
 
         // Set LoginStatus / Page_Rendering / Page_Render
         if (!IsApi() && !$this->isTerminated()) {
+            // Setup login status
+            SetupLoginStatus();
+
             // Pass login status to client side
             SetClientVar("login", LoginStatus());
 
@@ -634,8 +642,11 @@ class UsersDelete extends Users
             $this->role->ViewCustomAttributes = "";
 
             // state
-            $this->state->ViewValue = $this->state->CurrentValue;
-            $this->state->ViewValue = FormatNumber($this->state->ViewValue, $this->state->formatPattern());
+            if (strval($this->state->CurrentValue) != "") {
+                $this->state->ViewValue = $this->state->optionCaption($this->state->CurrentValue);
+            } else {
+                $this->state->ViewValue = null;
+            }
             $this->state->ViewCustomAttributes = "";
 
             // user_id
@@ -664,6 +675,10 @@ class UsersDelete extends Users
     protected function deleteRows()
     {
         global $Language, $Security;
+        if (!$Security->canDelete()) {
+            $this->setFailureMessage($Language->phrase("NoDeletePermission")); // No delete permission
+            return false;
+        }
         $sql = $this->getCurrentSql();
         $conn = $this->getConnection();
         $rows = $conn->fetchAllAssociative($sql);
@@ -768,6 +783,8 @@ class UsersDelete extends Users
 
             // Set up lookup SQL and connection
             switch ($fld->FieldVar) {
+                case "x_state":
+                    break;
                 default:
                     $lookupFilter = "";
                     break;

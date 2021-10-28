@@ -460,6 +460,7 @@ class AdvancedSecurity
     public function validateUser(&$usr, &$pwd, $autologin, $provider = "", $securitycode = "")
     {
         global $Language, $UserProfile;
+        global $UserTable;
         $valid = false;
         $customValid = false;
         $providerValid = false;
@@ -509,9 +510,61 @@ class AdvancedSecurity
             //$_SESSION[SESSION_STATUS] = "login"; // To be setup below
             $this->setCurrentUserName($usr); // Load user name
         }
-        if ($customValid) {
-            $row = null;
-            $customValid = $this->userValidated($row) !== false;
+
+        // Check other users
+        if (!$valid) {
+            $filter = GetUserFilter(Config("LOGIN_USERNAME_FIELD_NAME"), $usr);
+
+            // User table object
+            $UserTable = Container("usertable");
+
+            // Set up filter (WHERE Clause)
+            $sql = $UserTable->getSql($filter);
+            if ($row = Conn($UserTable->Dbid)->fetchAssociative($sql)) {
+                $valid = $customValid || ComparePassword(GetUserInfo(Config("LOGIN_PASSWORD_FIELD_NAME"), $row), $pwd);
+                if ($valid) {
+                    // Check two factor authentication
+                    if (Config("USE_TWO_FACTOR_AUTHENTICATION")) {
+                        // Check API login
+                        if (IsApi()) {
+                            if (Config("FORCE_TWO_FACTOR_AUTHENTICATION") || $UserProfile->hasUserSecret($usr, true)) { // Verify security code
+                                if (!$UserProfile->verify2FACode($usr, $securitycode)) {
+                                    return false;
+                                }
+                            }
+                        } elseif (Config("FORCE_TWO_FACTOR_AUTHENTICATION") && !$UserProfile->hasUserSecret($usr, true)) { // Non API, go to 2fa page
+                            return $valid;
+                        }
+                    }
+                    $this->isLoggedIn = true;
+                    $_SESSION[SESSION_STATUS] = "login";
+                    $this->isSysAdmin = false;
+                    $_SESSION[SESSION_SYS_ADMIN] = 0; // Non System Administrator
+                    $this->setCurrentUserName(GetUserInfo(Config("LOGIN_USERNAME_FIELD_NAME"), $row)); // Load user name
+
+                    // Call User Validated event
+                    $UserProfile->assign($row);
+                    $UserProfile->delete(Config("LOGIN_PASSWORD_FIELD_NAME")); // Delete password
+                    $valid = $this->userValidated($row) !== false; // For backward compatibility
+
+                    // Set up User Email field
+                    if (!EmptyValue(Config("USER_EMAIL_FIELD_NAME"))) {
+                        $UserProfile->set(Config("USER_EMAIL_FIELD_NAME"), $row[Config("USER_EMAIL_FIELD_NAME")]);
+                    }
+
+                    // Set up User Image field
+                    if (!EmptyValue(Config("USER_IMAGE_FIELD_NAME"))) {
+                        $imageField = $UserTable->Fields[Config("USER_IMAGE_FIELD_NAME")];
+                        $image = GetFileImage($imageField, $row[Config("USER_IMAGE_FIELD_NAME")], Config("USER_IMAGE_SIZE"), Config("USER_IMAGE_SIZE"), Config("USER_IMAGE_CROP"));
+                        $UserProfile->set(Config("USER_PROFILE_IMAGE"), base64_encode($image)); // Save as base64 encoded
+                    }
+                }
+            } else { // User not found in user table
+                if ($customValid) { // Grant default permissions
+                    $row = null;
+                    $customValid = $this->userValidated($row) !== false;
+                }
+            }
         }
         $UserProfile->save();
         if ($customValid) {
@@ -547,9 +600,19 @@ class AdvancedSecurity
         }
     }
 
-    // No User Level security
+    // User Level security (Anonymous)
     public function setupUserLevel()
     {
+        // Load user level from user level settings
+        global $USER_LEVELS, $USER_LEVEL_PRIVS;
+        $this->UserLevel = $USER_LEVELS;
+        $this->UserLevelPriv = $USER_LEVEL_PRIVS;
+
+        // Check permissions
+        $this->checkPermissions();
+
+        // Save the User Level to Session variable
+        $this->saveUserLevel();
     }
 
     // Check import/lookup permissions

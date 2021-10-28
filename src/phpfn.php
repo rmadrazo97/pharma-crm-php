@@ -5889,7 +5889,7 @@ function GlobalClientVars()
         "API_JWT_TOKEN" => GetJwtToken(), // API JWT token
         "IMAGE_FOLDER" => "images/", // Image folder
         "SESSION_TIMEOUT" => Config("SESSION_TIMEOUT") > 0 ? SessionTimeoutTime() : 0, // Session timeout time (seconds)
-        "TIMEOUT_URL" => GetUrl("index"), // Timeout URL // PHP
+        "TIMEOUT_URL" => GetUrl("logout"), // Timeout URL // PHP
         "USE_JAVASCRIPT_MESSAGE" => true,
         "USE_OVERLAY_SCROLLBARS" => false
     ], $values);
@@ -5952,6 +5952,19 @@ function SetupLoginStatus()
     $LoginStatus["loginTitle"] = $Language->phrase("Login", true);
     $LoginStatus["loginText"] = $Language->phrase("Login");
     $LoginStatus["canLogin"] = $currentPage != $loginPage && $loginUrl && !IsLoggedIn() && !IsLoggingIn2FA();
+
+    // Personal data page
+    $personalDataPage = "personaldata";
+    $personalDataUrl = GetUrl($personalDataPage);
+    if ($currentPage != $personalDataPage) {
+        $LoginStatus["personalData"] = [
+            "ew-action" => "redirect",
+            "url" => $personalDataUrl
+        ];
+    }
+    $LoginStatus["hasPersonalData"] = $personalDataUrl && IsLoggedIn() && !IsSysAdmin();
+    $LoginStatus["personalDataUrl"] = $personalDataUrl;
+    $LoginStatus["personalDataText"] = $Language->phrase("PersonalDataBtn");
 }
 
 // Is remote path

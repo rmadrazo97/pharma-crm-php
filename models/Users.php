@@ -144,6 +144,9 @@ class Users extends DbTable
             'TEXTAREA'
         );
         $this->_password->InputTextType = "text";
+        if (Config("ENCRYPTED_PASSWORD")) {
+            $this->_password->Raw = true;
+        }
         $this->_password->Nullable = false; // NOT NULL field
         $this->_password->Required = true; // Required field
         $this->Fields['password'] = &$this->_password;
@@ -214,11 +217,22 @@ class Users extends DbTable
             false,
             false,
             'FORMATTED TEXT',
-            'TEXT'
+            'SELECT'
         );
         $this->state->InputTextType = "text";
         $this->state->Nullable = false; // NOT NULL field
         $this->state->Required = true; // Required field
+        $this->state->UsePleaseSelect = true; // Use PleaseSelect by default
+        $this->state->PleaseSelectText = $Language->phrase("PleaseSelect"); // "PleaseSelect" text
+        switch ($CurrentLanguage) {
+            case "en-US":
+                $this->state->Lookup = new Lookup('state', 'users', false, '', ["","","",""], [], [], [], [], [], [], '', '', "");
+                break;
+            default:
+                $this->state->Lookup = new Lookup('state', 'users', false, '', ["","","",""], [], [], [], [], [], [], '', '', "");
+                break;
+        }
+        $this->state->OptionCount = 2;
         $this->state->DefaultErrorMessage = $Language->phrase("IncorrectInteger");
         $this->Fields['state'] = &$this->state;
 
@@ -538,6 +552,9 @@ class Users extends DbTable
             if (!isset($this->Fields[$name]) || $this->Fields[$name]->IsCustom) {
                 continue;
             }
+            if (Config("ENCRYPTED_PASSWORD") && $name == Config("LOGIN_PASSWORD_FIELD_NAME")) {
+                $value = Config("CASE_SENSITIVE_PASSWORD") ? EncryptPassword($value) : EncryptPassword(strtolower($value));
+            }
             $type = GetParameterType($this->Fields[$name], $value, $this->Dbid);
             $queryBuilder->setValue($this->Fields[$name]->Expression, $queryBuilder->createPositionalParameter($value, $type));
         }
@@ -572,6 +589,12 @@ class Users extends DbTable
         foreach ($rs as $name => $value) {
             if (!isset($this->Fields[$name]) || $this->Fields[$name]->IsCustom || $this->Fields[$name]->IsAutoIncrement) {
                 continue;
+            }
+            if (Config("ENCRYPTED_PASSWORD") && $name == Config("LOGIN_PASSWORD_FIELD_NAME")) {
+                if ($value == $this->Fields[$name]->OldValue) { // No need to update hashed password if not changed
+                    continue;
+                }
+                $value = Config("CASE_SENSITIVE_PASSWORD") ? EncryptPassword($value) : EncryptPassword(strtolower($value));
             }
             $type = GetParameterType($this->Fields[$name], $value, $this->Dbid);
             $queryBuilder->set($this->Fields[$name]->Expression, $queryBuilder->createPositionalParameter($value, $type));
@@ -864,7 +887,7 @@ class Users extends DbTable
         if ($sortUrl) {
             $html .= '<div class="ew-table-header-sort">' . $fld->getSortIcon() . '</div>';
         }
-        if ($fld->UseFilter) {
+        if ($fld->UseFilter && $Security->canSearch()) {
             $html .= '<div class="ew-filter-dropdown-btn" data-ew-action="filter" data-table="' . $fld->TableVar . '" data-field="' . $fld->FieldVar .
                 '"><div class="ew-table-header-filter" role="button" aria-haspopup="true">' . $Language->phrase("Filter") . '</div></div>';
         }
@@ -1013,8 +1036,11 @@ class Users extends DbTable
         $this->_email->ViewCustomAttributes = "";
 
         // state
-        $this->state->ViewValue = $this->state->CurrentValue;
-        $this->state->ViewValue = FormatNumber($this->state->ViewValue, $this->state->formatPattern());
+        if (strval($this->state->CurrentValue) != "") {
+            $this->state->ViewValue = $this->state->optionCaption($this->state->CurrentValue);
+        } else {
+            $this->state->ViewValue = null;
+        }
         $this->state->ViewCustomAttributes = "";
 
         // user_id
@@ -1098,11 +1124,8 @@ class Users extends DbTable
         // state
         $this->state->setupEditAttributes();
         $this->state->EditCustomAttributes = "";
-        $this->state->EditValue = $this->state->CurrentValue;
+        $this->state->EditValue = $this->state->options(true);
         $this->state->PlaceHolder = RemoveHtml($this->state->caption());
-        if (strval($this->state->EditValue) != "" && is_numeric($this->state->EditValue)) {
-            $this->state->EditValue = FormatNumber($this->state->EditValue, null);
-        }
 
         // Call Row Rendered event
         $this->rowRendered();

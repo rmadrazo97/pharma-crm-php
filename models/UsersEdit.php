@@ -136,6 +136,7 @@ class UsersEdit extends Users
     public function __construct()
     {
         global $Language, $DashboardReport, $DebugTimer;
+        global $UserTable;
 
         // Initialize
         $GLOBALS["Page"] = &$this;
@@ -164,6 +165,9 @@ class UsersEdit extends Users
 
         // Open connection
         $GLOBALS["Conn"] = $GLOBALS["Conn"] ?? $this->getConnection();
+
+        // User table object
+        $UserTable = Container("usertable");
     }
 
     // Get content from stream
@@ -509,6 +513,7 @@ class UsersEdit extends Users
         }
 
         // Set up lookup cache
+        $this->setupLookupOptions($this->state);
 
         // Check modal
         if ($this->IsModal) {
@@ -644,6 +649,9 @@ class UsersEdit extends Users
 
         // Set LoginStatus / Page_Rendering / Page_Render
         if (!IsApi() && !$this->isTerminated()) {
+            // Setup login status
+            SetupLoginStatus();
+
             // Pass login status to client side
             SetClientVar("login", LoginStatus());
 
@@ -727,7 +735,7 @@ class UsersEdit extends Users
             if (IsApi() && $val === null) {
                 $this->state->Visible = false; // Disable update for API request
             } else {
-                $this->state->setFormValue($val, true, $validate);
+                $this->state->setFormValue($val);
             }
         }
     }
@@ -882,8 +890,11 @@ class UsersEdit extends Users
             $this->_email->ViewCustomAttributes = "";
 
             // state
-            $this->state->ViewValue = $this->state->CurrentValue;
-            $this->state->ViewValue = FormatNumber($this->state->ViewValue, $this->state->formatPattern());
+            if (strval($this->state->CurrentValue) != "") {
+                $this->state->ViewValue = $this->state->optionCaption($this->state->CurrentValue);
+            } else {
+                $this->state->ViewValue = null;
+            }
             $this->state->ViewCustomAttributes = "";
 
             // user_id
@@ -946,11 +957,8 @@ class UsersEdit extends Users
             // state
             $this->state->setupEditAttributes();
             $this->state->EditCustomAttributes = "";
-            $this->state->EditValue = HtmlEncode($this->state->CurrentValue);
+            $this->state->EditValue = $this->state->options(true);
             $this->state->PlaceHolder = RemoveHtml($this->state->caption());
-            if (strval($this->state->EditValue) != "" && is_numeric($this->state->EditValue)) {
-                $this->state->EditValue = FormatNumber($this->state->EditValue, null);
-            }
 
             // Edit refer script
 
@@ -1031,9 +1039,6 @@ class UsersEdit extends Users
                 $this->state->addErrorMessage(str_replace("%s", $this->state->caption(), $this->state->RequiredErrorMessage));
             }
         }
-        if (!CheckInteger($this->state->FormValue)) {
-            $this->state->addErrorMessage($this->state->getErrorMessage(false));
-        }
 
         // Return validate result
         $validateForm = $validateForm && !$this->hasInvalidFields();
@@ -1069,7 +1074,7 @@ class UsersEdit extends Users
             $this->name->setDbValueDef($rsnew, $this->name->CurrentValue, "", $this->name->ReadOnly);
 
             // password
-            $this->_password->setDbValueDef($rsnew, $this->_password->CurrentValue, "", $this->_password->ReadOnly);
+            $this->_password->setDbValueDef($rsnew, $this->_password->CurrentValue, "", $this->_password->ReadOnly || Config("ENCRYPTED_PASSWORD") && $rsold['password'] == $this->_password->CurrentValue);
 
             // role
             $this->role->setDbValueDef($rsnew, $this->role->CurrentValue, 0, $this->role->ReadOnly);
@@ -1144,6 +1149,8 @@ class UsersEdit extends Users
 
             // Set up lookup SQL and connection
             switch ($fld->FieldVar) {
+                case "x_state":
+                    break;
                 default:
                     $lookupFilter = "";
                     break;

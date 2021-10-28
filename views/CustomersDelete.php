@@ -47,6 +47,18 @@ $Page->showMessage();
 <?php if ($Page->customer_id->Visible) { // customer_id ?>
         <th class="<?= $Page->customer_id->headerCellClass() ?>"><span id="elh_customers_customer_id" class="customers_customer_id"><?= $Page->customer_id->caption() ?></span></th>
 <?php } ?>
+<?php if ($Page->name->Visible) { // name ?>
+        <th class="<?= $Page->name->headerCellClass() ?>"><span id="elh_customers_name" class="customers_name"><?= $Page->name->caption() ?></span></th>
+<?php } ?>
+<?php if ($Page->phone->Visible) { // phone ?>
+        <th class="<?= $Page->phone->headerCellClass() ?>"><span id="elh_customers_phone" class="customers_phone"><?= $Page->phone->caption() ?></span></th>
+<?php } ?>
+<?php if ($Page->_email->Visible) { // email ?>
+        <th class="<?= $Page->_email->headerCellClass() ?>"><span id="elh_customers__email" class="customers__email"><?= $Page->_email->caption() ?></span></th>
+<?php } ?>
+<?php if ($Page->address->Visible) { // address ?>
+        <th class="<?= $Page->address->headerCellClass() ?>"><span id="elh_customers_address" class="customers_address"><?= $Page->address->caption() ?></span></th>
+<?php } ?>
 <?php if ($Page->_profile->Visible) { // profile ?>
         <th class="<?= $Page->_profile->headerCellClass() ?>"><span id="elh_customers__profile" class="customers__profile"><?= $Page->_profile->caption() ?></span></th>
 <?php } ?>
@@ -82,6 +94,38 @@ while (!$Page->Recordset->EOF) {
 <span id="el<?= $Page->RowCount ?>_customers_customer_id" class="el_customers_customer_id">
 <span<?= $Page->customer_id->viewAttributes() ?>>
 <?= $Page->customer_id->getViewValue() ?></span>
+</span>
+</td>
+<?php } ?>
+<?php if ($Page->name->Visible) { // name ?>
+        <td<?= $Page->name->cellAttributes() ?>>
+<span id="el<?= $Page->RowCount ?>_customers_name" class="el_customers_name">
+<span<?= $Page->name->viewAttributes() ?>>
+<?= $Page->name->getViewValue() ?></span>
+</span>
+</td>
+<?php } ?>
+<?php if ($Page->phone->Visible) { // phone ?>
+        <td<?= $Page->phone->cellAttributes() ?>>
+<span id="el<?= $Page->RowCount ?>_customers_phone" class="el_customers_phone">
+<span<?= $Page->phone->viewAttributes() ?>>
+<?= $Page->phone->getViewValue() ?></span>
+</span>
+</td>
+<?php } ?>
+<?php if ($Page->_email->Visible) { // email ?>
+        <td<?= $Page->_email->cellAttributes() ?>>
+<span id="el<?= $Page->RowCount ?>_customers__email" class="el_customers__email">
+<span<?= $Page->_email->viewAttributes() ?>>
+<?= $Page->_email->getViewValue() ?></span>
+</span>
+</td>
+<?php } ?>
+<?php if ($Page->address->Visible) { // address ?>
+        <td<?= $Page->address->cellAttributes() ?>>
+<span id="el<?= $Page->RowCount ?>_customers_address" class="el_customers_address">
+<span<?= $Page->address->viewAttributes() ?>>
+<?= $Page->address->getViewValue() ?></span>
 </span>
 </td>
 <?php } ?>

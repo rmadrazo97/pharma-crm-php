@@ -56,4 +56,7 @@ return [
     "sales_order" => \DI\create(SalesOrder::class),
     "sales_order_detail" => \DI\create(SalesOrderDetail::class),
     "users" => \DI\create(Users::class),
+
+    // User table
+    "usertable" => \DI\get("users"),
 ];

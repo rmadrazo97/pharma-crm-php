@@ -69,9 +69,9 @@ class SalesOrderDetail extends DbTable
         $this->ExportWordPageOrientation = "portrait"; // Page orientation (PHPWord only)
         $this->ExportWordPageSize = "A4"; // Page orientation (PHPWord only)
         $this->ExportWordColumnWidth = null; // Cell width (PHPWord only)
-        $this->DetailAdd = false; // Allow detail add
-        $this->DetailEdit = false; // Allow detail edit
-        $this->DetailView = false; // Allow detail view
+        $this->DetailAdd = true; // Allow detail add
+        $this->DetailEdit = true; // Allow detail edit
+        $this->DetailView = true; // Allow detail view
         $this->ShowMultipleDetails = false; // Show multiple details
         $this->GridAddRowCount = 5;
         $this->AllowAddDeleteRow = true; // Allow add/delete row
@@ -947,7 +947,7 @@ class SalesOrderDetail extends DbTable
         if ($sortUrl) {
             $html .= '<div class="ew-table-header-sort">' . $fld->getSortIcon() . '</div>';
         }
-        if ($fld->UseFilter) {
+        if ($fld->UseFilter && $Security->canSearch()) {
             $html .= '<div class="ew-filter-dropdown-btn" data-ew-action="filter" data-table="' . $fld->TableVar . '" data-field="' . $fld->FieldVar .
                 '"><div class="ew-table-header-filter" role="button" aria-haspopup="true">' . $Language->phrase("Filter") . '</div></div>';
         }
