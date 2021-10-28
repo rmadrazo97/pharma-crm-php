@@ -1,0 +1,11 @@
+{
+    "name": "pharma",
+    "version": "18.4.0",
+    "description": "pharma",
+    "license": "SEE LICENSE IN LICENSE.md",
+    "private": true,
+    "dependencies": {},
+    "engines": {
+        "node": ">=16"
+    }
+}
