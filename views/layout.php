@@ -410,6 +410,7 @@ loadjs.ready(ew.bundleIds, function() {
     if (!loadjs.isDefined("foot"))
         loadjs.done("foot");
 });
+$('.brand-text').text('DAP');
 </script>
 </body>
 </html>
