@@ -44,17 +44,6 @@ $Page->showMessage();
 <input type="hidden" name="t" value="customers">
 <input type="hidden" name="modal" value="<?= (int)$Page->IsModal ?>">
 <table class="table table-striped table-bordered table-hover table-sm ew-view-table">
-<?php if ($Page->customer_id->Visible) { // customer_id ?>
-    <tr id="r_customer_id"<?= $Page->customer_id->rowAttributes() ?>>
-        <td class="<?= $Page->TableLeftColumnClass ?>"><span id="elh_customers_customer_id"><?= $Page->customer_id->caption() ?></span></td>
-        <td data-name="customer_id"<?= $Page->customer_id->cellAttributes() ?>>
-<span id="el_customers_customer_id">
-<span<?= $Page->customer_id->viewAttributes() ?>>
-<?= $Page->customer_id->getViewValue() ?></span>
-</span>
-</td>
-    </tr>
-<?php } ?>
 <?php if ($Page->name->Visible) { // name ?>
     <tr id="r_name"<?= $Page->name->rowAttributes() ?>>
         <td class="<?= $Page->TableLeftColumnClass ?>"><span id="elh_customers_name"><?= $Page->name->caption() ?></span></td>

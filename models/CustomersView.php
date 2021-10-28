@@ -541,6 +541,7 @@ class CustomersView extends Customers
         }
 
         // Set up lookup cache
+        $this->setupLookupOptions($this->user_id);
 
         // Check modal
         if ($this->IsModal) {
@@ -831,14 +832,28 @@ class CustomersView extends Customers
             $this->state->ViewCustomAttributes = "";
 
             // user_id
-            $this->user_id->ViewValue = $this->user_id->CurrentValue;
-            $this->user_id->ViewValue = FormatNumber($this->user_id->ViewValue, $this->user_id->formatPattern());
+            $curVal = strval($this->user_id->CurrentValue);
+            if ($curVal != "") {
+                $this->user_id->ViewValue = $this->user_id->lookupCacheOption($curVal);
+                if ($this->user_id->ViewValue === null) { // Lookup from database
+                    $filterWrk = "`user_id`" . SearchString("=", $curVal, DATATYPE_NUMBER, "");
+                    $sqlWrk = $this->user_id->Lookup->getSql(false, $filterWrk, '', $this, true, true);
+                    $conn = Conn();
+                    $config = $conn->getConfiguration();
+                    $config->setResultCacheImpl($this->Cache);
+                    $rswrk = $conn->executeCacheQuery($sqlWrk, [], [], $this->CacheProfile)->fetchAll();
+                    $ari = count($rswrk);
+                    if ($ari > 0) { // Lookup values found
+                        $arwrk = $this->user_id->Lookup->renderViewRow($rswrk[0]);
+                        $this->user_id->ViewValue = $this->user_id->displayValue($arwrk);
+                    } else {
+                        $this->user_id->ViewValue = FormatNumber($this->user_id->CurrentValue, $this->user_id->formatPattern());
+                    }
+                }
+            } else {
+                $this->user_id->ViewValue = null;
+            }
             $this->user_id->ViewCustomAttributes = "";
-
-            // customer_id
-            $this->customer_id->LinkCustomAttributes = "";
-            $this->customer_id->HrefValue = "";
-            $this->customer_id->TooltipValue = "";
 
             // name
             $this->name->LinkCustomAttributes = "";
@@ -906,6 +921,8 @@ class CustomersView extends Customers
 
             // Set up lookup SQL and connection
             switch ($fld->FieldVar) {
+                case "x_user_id":
+                    break;
                 default:
                     $lookupFilter = "";
                     break;

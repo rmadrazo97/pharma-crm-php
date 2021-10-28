@@ -506,6 +506,7 @@ class CustomersAdd extends Customers
         }
 
         // Set up lookup cache
+        $this->setupLookupOptions($this->user_id);
 
         // Check modal
         if ($this->IsModal) {
@@ -728,7 +729,7 @@ class CustomersAdd extends Customers
             if (IsApi() && $val === null) {
                 $this->user_id->Visible = false; // Disable update for API request
             } else {
-                $this->user_id->setFormValue($val, true, $validate);
+                $this->user_id->setFormValue($val);
             }
         }
 
@@ -907,8 +908,27 @@ class CustomersAdd extends Customers
             $this->state->ViewCustomAttributes = "";
 
             // user_id
-            $this->user_id->ViewValue = $this->user_id->CurrentValue;
-            $this->user_id->ViewValue = FormatNumber($this->user_id->ViewValue, $this->user_id->formatPattern());
+            $curVal = strval($this->user_id->CurrentValue);
+            if ($curVal != "") {
+                $this->user_id->ViewValue = $this->user_id->lookupCacheOption($curVal);
+                if ($this->user_id->ViewValue === null) { // Lookup from database
+                    $filterWrk = "`user_id`" . SearchString("=", $curVal, DATATYPE_NUMBER, "");
+                    $sqlWrk = $this->user_id->Lookup->getSql(false, $filterWrk, '', $this, true, true);
+                    $conn = Conn();
+                    $config = $conn->getConfiguration();
+                    $config->setResultCacheImpl($this->Cache);
+                    $rswrk = $conn->executeCacheQuery($sqlWrk, [], [], $this->CacheProfile)->fetchAll();
+                    $ari = count($rswrk);
+                    if ($ari > 0) { // Lookup values found
+                        $arwrk = $this->user_id->Lookup->renderViewRow($rswrk[0]);
+                        $this->user_id->ViewValue = $this->user_id->displayValue($arwrk);
+                    } else {
+                        $this->user_id->ViewValue = FormatNumber($this->user_id->CurrentValue, $this->user_id->formatPattern());
+                    }
+                }
+            } else {
+                $this->user_id->ViewValue = null;
+            }
             $this->user_id->ViewCustomAttributes = "";
 
             // name
@@ -984,11 +1004,30 @@ class CustomersAdd extends Customers
             // user_id
             $this->user_id->setupEditAttributes();
             $this->user_id->EditCustomAttributes = "";
-            $this->user_id->EditValue = HtmlEncode($this->user_id->CurrentValue);
-            $this->user_id->PlaceHolder = RemoveHtml($this->user_id->caption());
-            if (strval($this->user_id->EditValue) != "" && is_numeric($this->user_id->EditValue)) {
-                $this->user_id->EditValue = FormatNumber($this->user_id->EditValue, null);
+            $curVal = trim(strval($this->user_id->CurrentValue));
+            if ($curVal != "") {
+                $this->user_id->ViewValue = $this->user_id->lookupCacheOption($curVal);
+            } else {
+                $this->user_id->ViewValue = $this->user_id->Lookup !== null && is_array($this->user_id->lookupOptions()) ? $curVal : null;
             }
+            if ($this->user_id->ViewValue !== null) { // Load from cache
+                $this->user_id->EditValue = array_values($this->user_id->lookupOptions());
+            } else { // Lookup from database
+                if ($curVal == "") {
+                    $filterWrk = "0=1";
+                } else {
+                    $filterWrk = "`user_id`" . SearchString("=", $this->user_id->CurrentValue, DATATYPE_NUMBER, "");
+                }
+                $sqlWrk = $this->user_id->Lookup->getSql(true, $filterWrk, '', $this, false, true);
+                $conn = Conn();
+                $config = $conn->getConfiguration();
+                $config->setResultCacheImpl($this->Cache);
+                $rswrk = $conn->executeCacheQuery($sqlWrk, [], [], $this->CacheProfile)->fetchAll();
+                $ari = count($rswrk);
+                $arwrk = $rswrk;
+                $this->user_id->EditValue = $arwrk;
+            }
+            $this->user_id->PlaceHolder = RemoveHtml($this->user_id->caption());
 
             // Add refer script
 
@@ -1080,9 +1119,6 @@ class CustomersAdd extends Customers
             if (!$this->user_id->IsDetailKey && EmptyValue($this->user_id->FormValue)) {
                 $this->user_id->addErrorMessage(str_replace("%s", $this->user_id->caption(), $this->user_id->RequiredErrorMessage));
             }
-        }
-        if (!CheckInteger($this->user_id->FormValue)) {
-            $this->user_id->addErrorMessage($this->user_id->getErrorMessage(false));
         }
 
         // Return validate result
@@ -1188,6 +1224,8 @@ class CustomersAdd extends Customers
 
             // Set up lookup SQL and connection
             switch ($fld->FieldVar) {
+                case "x_user_id":
+                    break;
                 default:
                     $lookupFilter = "";
                     break;

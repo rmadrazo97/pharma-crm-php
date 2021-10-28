@@ -265,11 +265,21 @@ class Customers extends DbTable
             false,
             false,
             'FORMATTED TEXT',
-            'TEXT'
+            'SELECT'
         );
         $this->user_id->InputTextType = "text";
         $this->user_id->Nullable = false; // NOT NULL field
         $this->user_id->Required = true; // Required field
+        $this->user_id->UsePleaseSelect = true; // Use PleaseSelect by default
+        $this->user_id->PleaseSelectText = $Language->phrase("PleaseSelect"); // "PleaseSelect" text
+        switch ($CurrentLanguage) {
+            case "en-US":
+                $this->user_id->Lookup = new Lookup('user_id', 'users', false, 'user_id', ["user_id","name","",""], ["x_user_id"], ["x_user_id"], ["user_id"], ["x_user_id"], [], [], '', '', "CONCAT(COALESCE(`user_id`, ''),'" . ValueSeparator(1, $this->user_id) . "',COALESCE(`name`,''))");
+                break;
+            default:
+                $this->user_id->Lookup = new Lookup('user_id', 'users', false, 'user_id', ["user_id","name","",""], ["x_user_id"], ["x_user_id"], ["user_id"], ["x_user_id"], [], [], '', '', "CONCAT(COALESCE(`user_id`, ''),'" . ValueSeparator(1, $this->user_id) . "',COALESCE(`name`,''))");
+                break;
+        }
         $this->user_id->DefaultErrorMessage = $Language->phrase("IncorrectInteger");
         $this->Fields['user_id'] = &$this->user_id;
 
@@ -1081,8 +1091,27 @@ class Customers extends DbTable
         $this->state->ViewCustomAttributes = "";
 
         // user_id
-        $this->user_id->ViewValue = $this->user_id->CurrentValue;
-        $this->user_id->ViewValue = FormatNumber($this->user_id->ViewValue, $this->user_id->formatPattern());
+        $curVal = strval($this->user_id->CurrentValue);
+        if ($curVal != "") {
+            $this->user_id->ViewValue = $this->user_id->lookupCacheOption($curVal);
+            if ($this->user_id->ViewValue === null) { // Lookup from database
+                $filterWrk = "`user_id`" . SearchString("=", $curVal, DATATYPE_NUMBER, "");
+                $sqlWrk = $this->user_id->Lookup->getSql(false, $filterWrk, '', $this, true, true);
+                $conn = Conn();
+                $config = $conn->getConfiguration();
+                $config->setResultCacheImpl($this->Cache);
+                $rswrk = $conn->executeCacheQuery($sqlWrk, [], [], $this->CacheProfile)->fetchAll();
+                $ari = count($rswrk);
+                if ($ari > 0) { // Lookup values found
+                    $arwrk = $this->user_id->Lookup->renderViewRow($rswrk[0]);
+                    $this->user_id->ViewValue = $this->user_id->displayValue($arwrk);
+                } else {
+                    $this->user_id->ViewValue = FormatNumber($this->user_id->CurrentValue, $this->user_id->formatPattern());
+                }
+            }
+        } else {
+            $this->user_id->ViewValue = null;
+        }
         $this->user_id->ViewCustomAttributes = "";
 
         // customer_id
@@ -1191,11 +1220,7 @@ class Customers extends DbTable
         // user_id
         $this->user_id->setupEditAttributes();
         $this->user_id->EditCustomAttributes = "";
-        $this->user_id->EditValue = $this->user_id->CurrentValue;
         $this->user_id->PlaceHolder = RemoveHtml($this->user_id->caption());
-        if (strval($this->user_id->EditValue) != "" && is_numeric($this->user_id->EditValue)) {
-            $this->user_id->EditValue = FormatNumber($this->user_id->EditValue, null);
-        }
 
         // Call Row Rendered event
         $this->rowRendered();
@@ -1225,7 +1250,6 @@ class Customers extends DbTable
             if ($doc->Horizontal) { // Horizontal format, write header
                 $doc->beginExportRow();
                 if ($exportPageType == "view") {
-                    $doc->exportCaption($this->customer_id);
                     $doc->exportCaption($this->name);
                     $doc->exportCaption($this->phone);
                     $doc->exportCaption($this->_email);
@@ -1267,7 +1291,6 @@ class Customers extends DbTable
                 if (!$doc->ExportCustom) {
                     $doc->beginExportRow($rowCnt); // Allow CSS styles if enabled
                     if ($exportPageType == "view") {
-                        $doc->exportField($this->customer_id);
                         $doc->exportField($this->name);
                         $doc->exportField($this->phone);
                         $doc->exportField($this->_email);

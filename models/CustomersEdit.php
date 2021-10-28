@@ -487,7 +487,7 @@ class CustomersEdit extends Customers
         // Create form object
         $CurrentForm = new HttpForm();
         $this->CurrentAction = Param("action"); // Set up current action
-        $this->customer_id->setVisibility();
+        $this->customer_id->Visible = false;
         $this->name->setVisibility();
         $this->phone->setVisibility();
         $this->_email->setVisibility();
@@ -511,6 +511,7 @@ class CustomersEdit extends Customers
         }
 
         // Set up lookup cache
+        $this->setupLookupOptions($this->user_id);
 
         // Check modal
         if ($this->IsModal) {
@@ -677,12 +678,6 @@ class CustomersEdit extends Customers
         global $CurrentForm;
         $validate = !Config("SERVER_VALIDATE");
 
-        // Check field name 'customer_id' first before field var 'x_customer_id'
-        $val = $CurrentForm->hasValue("customer_id") ? $CurrentForm->getValue("customer_id") : $CurrentForm->getValue("x_customer_id");
-        if (!$this->customer_id->IsDetailKey) {
-            $this->customer_id->setFormValue($val);
-        }
-
         // Check field name 'name' first before field var 'x_name'
         $val = $CurrentForm->hasValue("name") ? $CurrentForm->getValue("name") : $CurrentForm->getValue("x_name");
         if (!$this->name->IsDetailKey) {
@@ -749,8 +744,14 @@ class CustomersEdit extends Customers
             if (IsApi() && $val === null) {
                 $this->user_id->Visible = false; // Disable update for API request
             } else {
-                $this->user_id->setFormValue($val, true, $validate);
+                $this->user_id->setFormValue($val);
             }
+        }
+
+        // Check field name 'customer_id' first before field var 'x_customer_id'
+        $val = $CurrentForm->hasValue("customer_id") ? $CurrentForm->getValue("customer_id") : $CurrentForm->getValue("x_customer_id");
+        if (!$this->customer_id->IsDetailKey) {
+            $this->customer_id->setFormValue($val);
         }
     }
 
@@ -925,13 +926,28 @@ class CustomersEdit extends Customers
             $this->state->ViewCustomAttributes = "";
 
             // user_id
-            $this->user_id->ViewValue = $this->user_id->CurrentValue;
-            $this->user_id->ViewValue = FormatNumber($this->user_id->ViewValue, $this->user_id->formatPattern());
+            $curVal = strval($this->user_id->CurrentValue);
+            if ($curVal != "") {
+                $this->user_id->ViewValue = $this->user_id->lookupCacheOption($curVal);
+                if ($this->user_id->ViewValue === null) { // Lookup from database
+                    $filterWrk = "`user_id`" . SearchString("=", $curVal, DATATYPE_NUMBER, "");
+                    $sqlWrk = $this->user_id->Lookup->getSql(false, $filterWrk, '', $this, true, true);
+                    $conn = Conn();
+                    $config = $conn->getConfiguration();
+                    $config->setResultCacheImpl($this->Cache);
+                    $rswrk = $conn->executeCacheQuery($sqlWrk, [], [], $this->CacheProfile)->fetchAll();
+                    $ari = count($rswrk);
+                    if ($ari > 0) { // Lookup values found
+                        $arwrk = $this->user_id->Lookup->renderViewRow($rswrk[0]);
+                        $this->user_id->ViewValue = $this->user_id->displayValue($arwrk);
+                    } else {
+                        $this->user_id->ViewValue = FormatNumber($this->user_id->CurrentValue, $this->user_id->formatPattern());
+                    }
+                }
+            } else {
+                $this->user_id->ViewValue = null;
+            }
             $this->user_id->ViewCustomAttributes = "";
-
-            // customer_id
-            $this->customer_id->LinkCustomAttributes = "";
-            $this->customer_id->HrefValue = "";
 
             // name
             $this->name->LinkCustomAttributes = "";
@@ -961,12 +977,6 @@ class CustomersEdit extends Customers
             $this->user_id->LinkCustomAttributes = "";
             $this->user_id->HrefValue = "";
         } elseif ($this->RowType == ROWTYPE_EDIT) {
-            // customer_id
-            $this->customer_id->setupEditAttributes();
-            $this->customer_id->EditCustomAttributes = "";
-            $this->customer_id->EditValue = $this->customer_id->CurrentValue;
-            $this->customer_id->ViewCustomAttributes = "";
-
             // name
             $this->name->setupEditAttributes();
             $this->name->EditCustomAttributes = "";
@@ -1012,17 +1022,32 @@ class CustomersEdit extends Customers
             // user_id
             $this->user_id->setupEditAttributes();
             $this->user_id->EditCustomAttributes = "";
-            $this->user_id->EditValue = HtmlEncode($this->user_id->CurrentValue);
-            $this->user_id->PlaceHolder = RemoveHtml($this->user_id->caption());
-            if (strval($this->user_id->EditValue) != "" && is_numeric($this->user_id->EditValue)) {
-                $this->user_id->EditValue = FormatNumber($this->user_id->EditValue, null);
+            $curVal = trim(strval($this->user_id->CurrentValue));
+            if ($curVal != "") {
+                $this->user_id->ViewValue = $this->user_id->lookupCacheOption($curVal);
+            } else {
+                $this->user_id->ViewValue = $this->user_id->Lookup !== null && is_array($this->user_id->lookupOptions()) ? $curVal : null;
             }
+            if ($this->user_id->ViewValue !== null) { // Load from cache
+                $this->user_id->EditValue = array_values($this->user_id->lookupOptions());
+            } else { // Lookup from database
+                if ($curVal == "") {
+                    $filterWrk = "0=1";
+                } else {
+                    $filterWrk = "`user_id`" . SearchString("=", $this->user_id->CurrentValue, DATATYPE_NUMBER, "");
+                }
+                $sqlWrk = $this->user_id->Lookup->getSql(true, $filterWrk, '', $this, false, true);
+                $conn = Conn();
+                $config = $conn->getConfiguration();
+                $config->setResultCacheImpl($this->Cache);
+                $rswrk = $conn->executeCacheQuery($sqlWrk, [], [], $this->CacheProfile)->fetchAll();
+                $ari = count($rswrk);
+                $arwrk = $rswrk;
+                $this->user_id->EditValue = $arwrk;
+            }
+            $this->user_id->PlaceHolder = RemoveHtml($this->user_id->caption());
 
             // Edit refer script
-
-            // customer_id
-            $this->customer_id->LinkCustomAttributes = "";
-            $this->customer_id->HrefValue = "";
 
             // name
             $this->name->LinkCustomAttributes = "";
@@ -1072,11 +1097,6 @@ class CustomersEdit extends Customers
             return true;
         }
         $validateForm = true;
-        if ($this->customer_id->Required) {
-            if (!$this->customer_id->IsDetailKey && EmptyValue($this->customer_id->FormValue)) {
-                $this->customer_id->addErrorMessage(str_replace("%s", $this->customer_id->caption(), $this->customer_id->RequiredErrorMessage));
-            }
-        }
         if ($this->name->Required) {
             if (!$this->name->IsDetailKey && EmptyValue($this->name->FormValue)) {
                 $this->name->addErrorMessage(str_replace("%s", $this->name->caption(), $this->name->RequiredErrorMessage));
@@ -1117,9 +1137,6 @@ class CustomersEdit extends Customers
             if (!$this->user_id->IsDetailKey && EmptyValue($this->user_id->FormValue)) {
                 $this->user_id->addErrorMessage(str_replace("%s", $this->user_id->caption(), $this->user_id->RequiredErrorMessage));
             }
-        }
-        if (!CheckInteger($this->user_id->FormValue)) {
-            $this->user_id->addErrorMessage($this->user_id->getErrorMessage(false));
         }
 
         // Return validate result
@@ -1237,6 +1254,8 @@ class CustomersEdit extends Customers
 
             // Set up lookup SQL and connection
             switch ($fld->FieldVar) {
+                case "x_user_id":
+                    break;
                 default:
                     $lookupFilter = "";
                     break;

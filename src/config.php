@@ -145,7 +145,7 @@ $CONFIG = [
 
     // General
     "UNFORMAT_YEAR" => 50, // Unformat year
-    "RANDOM_KEY" => 'fpqm0iZXcK89W3gE', // Random key for encryption
+    "RANDOM_KEY" => 'I0va60Nm5odk4Aat', // Random key for encryption
     "ENCRYPTION_KEY" => '', // Encryption key for data protection
     "PROJECT_STYLESHEET_FILENAME" => "css/pharma.css", // Project stylesheet file name
     "USE_COMPRESSED_STYLESHEET" => true, // Compressed stylesheet
@@ -158,8 +158,8 @@ $CONFIG = [
     "CACHE" => false, // Cache
     "LAZY_LOAD" => true, // Lazy loading of images
     "BODY_CLASS" => "hold-transition layout-fixed",
-    "SIDEBAR_CLASS" => "main-sidebar sidebar-dark-navy",
-    "NAVBAR_CLASS" => "main-header navbar navbar-expand navbar-navy navbar-dark border-bottom-0",
+    "SIDEBAR_CLASS" => "main-sidebar sidebar-dark-primary",
+    "NAVBAR_CLASS" => "main-header navbar navbar-expand navbar-light border-bottom-0",
 
     // Check Token
     "CHECK_TOKEN" => true,

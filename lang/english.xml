@@ -982,25 +982,25 @@
         <phrase id="fldcaption" value="customer id" />
       </field>
       <field id="name">
-        <phrase id="fldcaption" value="name" />
+        <phrase id="fldcaption" value="Nombe" />
       </field>
       <field id="phone">
-        <phrase id="fldcaption" value="phone" />
+        <phrase id="fldcaption" value="Telefono" />
       </field>
       <field id="_email">
-        <phrase id="fldcaption" value="email" />
+        <phrase id="fldcaption" value="Email" />
       </field>
       <field id="address">
-        <phrase id="fldcaption" value="address" />
+        <phrase id="fldcaption" value="Direccion" />
       </field>
       <field id="_profile">
-        <phrase id="fldcaption" value="profile" />
+        <phrase id="fldcaption" value="Tipo" />
       </field>
       <field id="state">
-        <phrase id="fldcaption" value="state" />
+        <phrase id="fldcaption" value="Estado" />
       </field>
       <field id="user_id">
-        <phrase id="fldcaption" value="user id" />
+        <phrase id="fldcaption" value="Usuario" />
       </field>
     </table>
     <table id="products">

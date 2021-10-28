@@ -20,14 +20,13 @@ loadjs.ready(["wrapper", "head"], function () {
     // Add fields
     var fields = currentTable.fields;
     fcustomersedit.addFields([
-        ["customer_id", [fields.customer_id.visible && fields.customer_id.required ? ew.Validators.required(fields.customer_id.caption) : null], fields.customer_id.isInvalid],
         ["name", [fields.name.visible && fields.name.required ? ew.Validators.required(fields.name.caption) : null], fields.name.isInvalid],
         ["phone", [fields.phone.visible && fields.phone.required ? ew.Validators.required(fields.phone.caption) : null], fields.phone.isInvalid],
         ["_email", [fields._email.visible && fields._email.required ? ew.Validators.required(fields._email.caption) : null], fields._email.isInvalid],
         ["address", [fields.address.visible && fields.address.required ? ew.Validators.required(fields.address.caption) : null], fields.address.isInvalid],
         ["_profile", [fields._profile.visible && fields._profile.required ? ew.Validators.required(fields._profile.caption) : null, ew.Validators.integer], fields._profile.isInvalid],
         ["state", [fields.state.visible && fields.state.required ? ew.Validators.required(fields.state.caption) : null, ew.Validators.integer], fields.state.isInvalid],
-        ["user_id", [fields.user_id.visible && fields.user_id.required ? ew.Validators.required(fields.user_id.caption) : null, ew.Validators.integer], fields.user_id.isInvalid]
+        ["user_id", [fields.user_id.visible && fields.user_id.required ? ew.Validators.required(fields.user_id.caption) : null], fields.user_id.isInvalid]
     ]);
 
     // Form_CustomValidate
@@ -40,6 +39,7 @@ loadjs.ready(["wrapper", "head"], function () {
     fcustomersedit.validateRequired = ew.CLIENT_VALIDATE;
 
     // Dynamic selection lists
+    fcustomersedit.lists.user_id = <?= $Page->user_id->toClientList($Page) ?>;
     loadjs.done("fcustomersedit");
 });
 </script>
@@ -62,18 +62,6 @@ $Page->showMessage();
 <input type="hidden" name="modal" value="<?= (int)$Page->IsModal ?>">
 <input type="hidden" name="<?= $Page->OldKeyName ?>" value="<?= $Page->OldKey ?>">
 <div class="ew-edit-div"><!-- page* -->
-<?php if ($Page->customer_id->Visible) { // customer_id ?>
-    <div id="r_customer_id"<?= $Page->customer_id->rowAttributes() ?>>
-        <label id="elh_customers_customer_id" class="<?= $Page->LeftColumnClass ?>"><?= $Page->customer_id->caption() ?><?= $Page->customer_id->Required ? $Language->phrase("FieldRequiredIndicator") : "" ?></label>
-        <div class="<?= $Page->RightColumnClass ?>"><div<?= $Page->customer_id->cellAttributes() ?>>
-<span id="el_customers_customer_id">
-<span<?= $Page->customer_id->viewAttributes() ?>>
-<input type="text" readonly class="form-control-plaintext" value="<?= HtmlEncode(RemoveHtml($Page->customer_id->getDisplayValue($Page->customer_id->EditValue))) ?>"></span>
-</span>
-<input type="hidden" data-table="customers" data-field="x_customer_id" data-hidden="1" name="x_customer_id" id="x_customer_id" value="<?= HtmlEncode($Page->customer_id->CurrentValue) ?>">
-</div></div>
-    </div>
-<?php } ?>
 <?php if ($Page->name->Visible) { // name ?>
     <div id="r_name"<?= $Page->name->rowAttributes() ?>>
         <label id="elh_customers_name" for="x_name" class="<?= $Page->LeftColumnClass ?>"><?= $Page->name->caption() ?><?= $Page->name->Required ? $Language->phrase("FieldRequiredIndicator") : "" ?></label>
@@ -151,14 +139,43 @@ $Page->showMessage();
         <label id="elh_customers_user_id" for="x_user_id" class="<?= $Page->LeftColumnClass ?>"><?= $Page->user_id->caption() ?><?= $Page->user_id->Required ? $Language->phrase("FieldRequiredIndicator") : "" ?></label>
         <div class="<?= $Page->RightColumnClass ?>"><div<?= $Page->user_id->cellAttributes() ?>>
 <span id="el_customers_user_id">
-<input type="<?= $Page->user_id->getInputTextType() ?>" name="x_user_id" id="x_user_id" data-table="customers" data-field="x_user_id" value="<?= $Page->user_id->EditValue ?>" size="30" placeholder="<?= HtmlEncode($Page->user_id->getPlaceHolder()) ?>"<?= $Page->user_id->editAttributes() ?> aria-describedby="x_user_id_help">
-<?= $Page->user_id->getCustomMessage() ?>
-<div class="invalid-feedback"><?= $Page->user_id->getErrorMessage() ?></div>
+<?php $Page->user_id->EditAttrs->prepend("onchange", "ew.updateOptions.call(this);"); ?>
+    <select
+        id="x_user_id"
+        name="x_user_id"
+        class="form-select ew-select<?= $Page->user_id->isInvalidClass() ?>"
+        data-select2-id="fcustomersedit_x_user_id"
+        data-table="customers"
+        data-field="x_user_id"
+        data-value-separator="<?= $Page->user_id->displayValueSeparatorAttribute() ?>"
+        data-placeholder="<?= HtmlEncode($Page->user_id->getPlaceHolder()) ?>"
+        <?= $Page->user_id->editAttributes() ?>>
+        <?= $Page->user_id->selectOptionListHtml("x_user_id") ?>
+    </select>
+    <?= $Page->user_id->getCustomMessage() ?>
+    <div class="invalid-feedback"><?= $Page->user_id->getErrorMessage() ?></div>
+<?= $Page->user_id->Lookup->getParamTag($Page, "p_x_user_id") ?>
+<script>
+loadjs.ready("fcustomersedit", function() {
+    var options = { name: "x_user_id", selectId: "fcustomersedit_x_user_id" },
+        el = document.querySelector("select[data-select2-id='" + options.selectId + "']");
+    options.dropdownParent = el.closest("#ew-modal-dialog, #ew-add-opt-dialog");
+    if (fcustomersedit.lists.user_id.lookupOptions.length) {
+        options.data = { id: "x_user_id", form: "fcustomersedit" };
+    } else {
+        options.ajax = { id: "x_user_id", form: "fcustomersedit", limit: ew.LOOKUP_PAGE_SIZE };
+    }
+    options.minimumInputLength = ew.selectMinimumInputLength;
+    options = Object.assign({}, ew.selectOptions, options, ew.vars.tables.customers.fields.user_id.selectOptions);
+    ew.createSelect(options);
+});
+</script>
 </span>
 </div></div>
     </div>
 <?php } ?>
 </div><!-- /page* -->
+    <input type="hidden" data-table="customers" data-field="x_customer_id" data-hidden="1" name="x_customer_id" id="x_customer_id" value="<?= HtmlEncode($Page->customer_id->CurrentValue) ?>">
 <?php if (!$Page->IsModal) { ?>
 <div class="row"><!-- buttons .row -->
     <div class="<?= $Page->OffsetColumnClass ?>"><!-- buttons offset -->
