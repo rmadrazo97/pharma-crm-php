@@ -622,6 +622,8 @@ class UsersList extends Users
         $this->role->setVisibility();
         $this->_email->Visible = false;
         $this->state->setVisibility();
+        $this->first_name->Visible = false;
+        $this->last_name->Visible = false;
         $this->hideFieldsForAddEdit();
 
         // Set lookup cache
@@ -646,6 +648,7 @@ class UsersList extends Users
         }
 
         // Set up lookup cache
+        $this->setupLookupOptions($this->role);
         $this->setupLookupOptions($this->state);
 
         // Search filters
@@ -922,6 +925,8 @@ class UsersList extends Users
                 $this->role->setSort("");
                 $this->_email->setSort("");
                 $this->state->setSort("");
+                $this->first_name->setSort("");
+                $this->last_name->setSort("");
             }
 
             // Reset start position
@@ -1391,6 +1396,8 @@ class UsersList extends Users
         $this->role->setDbValue($row['role']);
         $this->_email->setDbValue($row['email']);
         $this->state->setDbValue($row['state']);
+        $this->first_name->setDbValue($row['first_name']);
+        $this->last_name->setDbValue($row['last_name']);
     }
 
     // Return a row with default values
@@ -1403,6 +1410,8 @@ class UsersList extends Users
         $row['role'] = null;
         $row['email'] = null;
         $row['state'] = null;
+        $row['first_name'] = null;
+        $row['last_name'] = null;
         return $row;
     }
 
@@ -1452,6 +1461,10 @@ class UsersList extends Users
 
         // state
 
+        // first_name
+
+        // last_name
+
         // View row
         if ($this->RowType == ROWTYPE_VIEW) {
             // user_id
@@ -1459,8 +1472,11 @@ class UsersList extends Users
             $this->user_id->ViewCustomAttributes = "";
 
             // role
-            $this->role->ViewValue = $this->role->CurrentValue;
-            $this->role->ViewValue = FormatNumber($this->role->ViewValue, $this->role->formatPattern());
+            if (strval($this->role->CurrentValue) != "") {
+                $this->role->ViewValue = $this->role->optionCaption($this->role->CurrentValue);
+            } else {
+                $this->role->ViewValue = null;
+            }
             $this->role->ViewCustomAttributes = "";
 
             // state
@@ -1750,6 +1766,8 @@ class UsersList extends Users
 
             // Set up lookup SQL and connection
             switch ($fld->FieldVar) {
+                case "x_role":
+                    break;
                 case "x_state":
                     break;
                 default:

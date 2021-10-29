@@ -506,6 +506,7 @@ class SalesOrderAdd extends SalesOrder
         }
 
         // Set up lookup cache
+        $this->setupLookupOptions($this->customer_id);
 
         // Check modal
         if ($this->IsModal) {
@@ -545,6 +546,9 @@ class SalesOrderAdd extends SalesOrder
             $this->loadFormValues(); // Load form values
         }
 
+        // Set up detail parameters
+        $this->setupDetailParms();
+
         // Validate form if post back
         if ($postBack) {
             if (!$this->validateForm()) {
@@ -569,6 +573,9 @@ class SalesOrderAdd extends SalesOrder
                     $this->terminate("SalesOrderList"); // No matching record, return to list
                     return;
                 }
+
+                // Set up detail parameters
+                $this->setupDetailParms();
                 break;
             case "insert": // Add new record
                 $this->SendEmail = true; // Send email on add success
@@ -576,7 +583,11 @@ class SalesOrderAdd extends SalesOrder
                     if ($this->getSuccessMessage() == "" && Post("addopt") != "1") { // Skip success message for addopt (done in JavaScript)
                         $this->setSuccessMessage($Language->phrase("AddSuccess")); // Set up success message
                     }
-                    $returnUrl = $this->getReturnUrl();
+                    if ($this->getCurrentDetailTable() != "") { // Master/detail add
+                        $returnUrl = $this->getDetailUrl();
+                    } else {
+                        $returnUrl = $this->getReturnUrl();
+                    }
                     if (GetPageName($returnUrl) == "SalesOrderList") {
                         $returnUrl = $this->addMasterUrl($returnUrl); // List page, return to List page with correct master key if necessary
                     } elseif (GetPageName($returnUrl) == "SalesOrderView") {
@@ -595,6 +606,9 @@ class SalesOrderAdd extends SalesOrder
                 } else {
                     $this->EventCancelled = true; // Event cancelled
                     $this->restoreFormValues(); // Add failed, restore form values
+
+                    // Set up detail parameters
+                    $this->setupDetailParms();
                 }
         }
 
@@ -815,7 +829,27 @@ class SalesOrderAdd extends SalesOrder
 
             // customer_id
             $this->customer_id->ViewValue = $this->customer_id->CurrentValue;
-            $this->customer_id->ViewValue = FormatNumber($this->customer_id->ViewValue, $this->customer_id->formatPattern());
+            $curVal = strval($this->customer_id->CurrentValue);
+            if ($curVal != "") {
+                $this->customer_id->ViewValue = $this->customer_id->lookupCacheOption($curVal);
+                if ($this->customer_id->ViewValue === null) { // Lookup from database
+                    $filterWrk = "`customer_id`" . SearchString("=", $curVal, DATATYPE_NUMBER, "");
+                    $sqlWrk = $this->customer_id->Lookup->getSql(false, $filterWrk, '', $this, true, true);
+                    $conn = Conn();
+                    $config = $conn->getConfiguration();
+                    $config->setResultCacheImpl($this->Cache);
+                    $rswrk = $conn->executeCacheQuery($sqlWrk, [], [], $this->CacheProfile)->fetchAll();
+                    $ari = count($rswrk);
+                    if ($ari > 0) { // Lookup values found
+                        $arwrk = $this->customer_id->Lookup->renderViewRow($rswrk[0]);
+                        $this->customer_id->ViewValue = $this->customer_id->displayValue($arwrk);
+                    } else {
+                        $this->customer_id->ViewValue = FormatNumber($this->customer_id->CurrentValue, $this->customer_id->formatPattern());
+                    }
+                }
+            } else {
+                $this->customer_id->ViewValue = null;
+            }
             $this->customer_id->ViewCustomAttributes = "";
 
             // date
@@ -844,10 +878,28 @@ class SalesOrderAdd extends SalesOrder
             $this->customer_id->setupEditAttributes();
             $this->customer_id->EditCustomAttributes = "";
             $this->customer_id->EditValue = HtmlEncode($this->customer_id->CurrentValue);
-            $this->customer_id->PlaceHolder = RemoveHtml($this->customer_id->caption());
-            if (strval($this->customer_id->EditValue) != "" && is_numeric($this->customer_id->EditValue)) {
-                $this->customer_id->EditValue = FormatNumber($this->customer_id->EditValue, null);
+            $curVal = strval($this->customer_id->CurrentValue);
+            if ($curVal != "") {
+                $this->customer_id->EditValue = $this->customer_id->lookupCacheOption($curVal);
+                if ($this->customer_id->EditValue === null) { // Lookup from database
+                    $filterWrk = "`customer_id`" . SearchString("=", $curVal, DATATYPE_NUMBER, "");
+                    $sqlWrk = $this->customer_id->Lookup->getSql(false, $filterWrk, '', $this, true, true);
+                    $conn = Conn();
+                    $config = $conn->getConfiguration();
+                    $config->setResultCacheImpl($this->Cache);
+                    $rswrk = $conn->executeCacheQuery($sqlWrk, [], [], $this->CacheProfile)->fetchAll();
+                    $ari = count($rswrk);
+                    if ($ari > 0) { // Lookup values found
+                        $arwrk = $this->customer_id->Lookup->renderViewRow($rswrk[0]);
+                        $this->customer_id->EditValue = $this->customer_id->displayValue($arwrk);
+                    } else {
+                        $this->customer_id->EditValue = HtmlEncode(FormatNumber($this->customer_id->CurrentValue, $this->customer_id->formatPattern()));
+                    }
+                }
+            } else {
+                $this->customer_id->EditValue = null;
             }
+            $this->customer_id->PlaceHolder = RemoveHtml($this->customer_id->caption());
 
             // date
             $this->date->setupEditAttributes();
@@ -923,6 +975,13 @@ class SalesOrderAdd extends SalesOrder
             $this->state->addErrorMessage($this->state->getErrorMessage(false));
         }
 
+        // Validate detail grid
+        $detailTblVar = explode(",", $this->getCurrentDetailTable());
+        $detailPage = Container("SalesOrderDetailGrid");
+        if (in_array("sales_order_detail", $detailTblVar) && $detailPage->DetailAdd) {
+            $validateForm = $validateForm && $detailPage->validateGridForm();
+        }
+
         // Return validate result
         $validateForm = $validateForm && !$this->hasInvalidFields();
 
@@ -940,6 +999,11 @@ class SalesOrderAdd extends SalesOrder
     {
         global $Language, $Security;
         $conn = $this->getConnection();
+
+        // Begin transaction
+        if ($this->getCurrentDetailTable() != "" && $this->UseTransaction) {
+            $conn->beginTransaction();
+        }
 
         // Load db values from rsold
         $this->loadDbValues($rsold);
@@ -973,6 +1037,34 @@ class SalesOrderAdd extends SalesOrder
             }
             $addRow = false;
         }
+
+        // Add detail records
+        if ($addRow) {
+            $detailTblVar = explode(",", $this->getCurrentDetailTable());
+            $detailPage = Container("SalesOrderDetailGrid");
+            if (in_array("sales_order_detail", $detailTblVar) && $detailPage->DetailAdd) {
+                $detailPage->sales_order_id->setSessionValue($this->order_id->CurrentValue); // Set master key
+                $Security->loadCurrentUserLevel($this->ProjectID . "sales_order_detail"); // Load user level of detail table
+                $addRow = $detailPage->gridInsert();
+                $Security->loadCurrentUserLevel($this->ProjectID . $this->TableName); // Restore user level of master table
+                if (!$addRow) {
+                $detailPage->sales_order_id->setSessionValue(""); // Clear master key if insert failed
+                }
+            }
+        }
+
+        // Commit/Rollback transaction
+        if ($this->getCurrentDetailTable() != "") {
+            if ($addRow) {
+                if ($this->UseTransaction) { // Commit transaction
+                    $conn->commit();
+                }
+            } else {
+                if ($this->UseTransaction) { // Rollback transaction
+                    $conn->rollback();
+                }
+            }
+        }
         if ($addRow) {
             // Call Row Inserted event
             $this->rowInserted($rsold, $rsnew);
@@ -988,6 +1080,39 @@ class SalesOrderAdd extends SalesOrder
             WriteJson(["success" => true, $this->TableVar => $row]);
         }
         return $addRow;
+    }
+
+    // Set up detail parms based on QueryString
+    protected function setupDetailParms()
+    {
+        // Get the keys for master table
+        $detailTblVar = Get(Config("TABLE_SHOW_DETAIL"));
+        if ($detailTblVar !== null) {
+            $this->setCurrentDetailTable($detailTblVar);
+        } else {
+            $detailTblVar = $this->getCurrentDetailTable();
+        }
+        if ($detailTblVar != "") {
+            $detailTblVar = explode(",", $detailTblVar);
+            if (in_array("sales_order_detail", $detailTblVar)) {
+                $detailPageObj = Container("SalesOrderDetailGrid");
+                if ($detailPageObj->DetailAdd) {
+                    if ($this->CopyRecord) {
+                        $detailPageObj->CurrentMode = "copy";
+                    } else {
+                        $detailPageObj->CurrentMode = "add";
+                    }
+                    $detailPageObj->CurrentAction = "gridadd";
+
+                    // Save current master table to detail table
+                    $detailPageObj->setCurrentMasterTable($this->TableVar);
+                    $detailPageObj->setStartRecordNumber(1);
+                    $detailPageObj->sales_order_id->IsDetailKey = true;
+                    $detailPageObj->sales_order_id->CurrentValue = $this->order_id->CurrentValue;
+                    $detailPageObj->sales_order_id->setSessionValue($detailPageObj->sales_order_id->CurrentValue);
+                }
+            }
+        }
     }
 
     // Set up Breadcrumb
@@ -1014,6 +1139,8 @@ class SalesOrderAdd extends SalesOrder
 
             // Set up lookup SQL and connection
             switch ($fld->FieldVar) {
+                case "x_customer_id":
+                    break;
                 default:
                     $lookupFilter = "";
                     break;

@@ -5887,6 +5887,8 @@ function GlobalClientVars()
         "ANTIFORGERY_TOKEN" => $GLOBALS["TokenValue"], // CSRF token // PHP
         "API_JWT_AUTHORIZATION_HEADER" => "X-Authorization", // API JWT authorization header
         "API_JWT_TOKEN" => GetJwtToken(), // API JWT token
+        "GENERATE_PASSWORD_LENGTH" => 16,
+        "MIN_PASSWORD_STRENGTH" => 60,
         "IMAGE_FOLDER" => "images/", // Image folder
         "SESSION_TIMEOUT" => Config("SESSION_TIMEOUT") > 0 ? SessionTimeoutTime() : 0, // Session timeout time (seconds)
         "TIMEOUT_URL" => GetUrl("logout"), // Timeout URL // PHP

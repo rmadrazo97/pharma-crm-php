@@ -75,7 +75,7 @@ $Page->showMessage();
         <label id="elh_products_code" for="x_code" class="<?= $Page->LeftColumnClass ?>"><?= $Page->code->caption() ?><?= $Page->code->Required ? $Language->phrase("FieldRequiredIndicator") : "" ?></label>
         <div class="<?= $Page->RightColumnClass ?>"><div<?= $Page->code->cellAttributes() ?>>
 <span id="el_products_code">
-<textarea data-table="products" data-field="x_code" name="x_code" id="x_code" cols="35" rows="4" placeholder="<?= HtmlEncode($Page->code->getPlaceHolder()) ?>"<?= $Page->code->editAttributes() ?> aria-describedby="x_code_help"><?= $Page->code->EditValue ?></textarea>
+<input type="<?= $Page->code->getInputTextType() ?>" name="x_code" id="x_code" data-table="products" data-field="x_code" value="<?= $Page->code->EditValue ?>" placeholder="<?= HtmlEncode($Page->code->getPlaceHolder()) ?>"<?= $Page->code->editAttributes() ?> aria-describedby="x_code_help">
 <?= $Page->code->getCustomMessage() ?>
 <div class="invalid-feedback"><?= $Page->code->getErrorMessage() ?></div>
 </span>

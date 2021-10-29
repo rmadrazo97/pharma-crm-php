@@ -35,6 +35,7 @@ loadjs.ready(["wrapper", "head"], function () {
     fsales_orderadd.validateRequired = ew.CLIENT_VALIDATE;
 
     // Dynamic selection lists
+    fsales_orderadd.lists.customer_id = <?= $Page->customer_id->toClientList($Page) ?>;
     loadjs.done("fsales_orderadd");
 });
 </script>
@@ -59,12 +60,29 @@ $Page->showMessage();
 <div class="ew-add-div"><!-- page* -->
 <?php if ($Page->customer_id->Visible) { // customer_id ?>
     <div id="r_customer_id"<?= $Page->customer_id->rowAttributes() ?>>
-        <label id="elh_sales_order_customer_id" for="x_customer_id" class="<?= $Page->LeftColumnClass ?>"><?= $Page->customer_id->caption() ?><?= $Page->customer_id->Required ? $Language->phrase("FieldRequiredIndicator") : "" ?></label>
+        <label id="elh_sales_order_customer_id" class="<?= $Page->LeftColumnClass ?>"><?= $Page->customer_id->caption() ?><?= $Page->customer_id->Required ? $Language->phrase("FieldRequiredIndicator") : "" ?></label>
         <div class="<?= $Page->RightColumnClass ?>"><div<?= $Page->customer_id->cellAttributes() ?>>
 <span id="el_sales_order_customer_id">
-<input type="<?= $Page->customer_id->getInputTextType() ?>" name="x_customer_id" id="x_customer_id" data-table="sales_order" data-field="x_customer_id" value="<?= $Page->customer_id->EditValue ?>" size="30" placeholder="<?= HtmlEncode($Page->customer_id->getPlaceHolder()) ?>"<?= $Page->customer_id->editAttributes() ?> aria-describedby="x_customer_id_help">
+<?php
+$onchange = $Page->customer_id->EditAttrs->prepend("onchange", "");
+$onchange = ($onchange) ? ' onchange="' . JsEncode($onchange) . '"' : '';
+$Page->customer_id->EditAttrs["onchange"] = "";
+if (IsRTL()) {
+    $Page->customer_id->EditAttrs["dir"] = "rtl";
+}
+?>
+<span id="as_x_customer_id" class="ew-auto-suggest">
+    <input type="<?= $Page->customer_id->getInputTextType() ?>" class="form-control" name="sv_x_customer_id" id="sv_x_customer_id" value="<?= RemoveHtml($Page->customer_id->EditValue) ?>" size="30" placeholder="<?= HtmlEncode($Page->customer_id->getPlaceHolder()) ?>" data-placeholder="<?= HtmlEncode($Page->customer_id->getPlaceHolder()) ?>"<?= $Page->customer_id->editAttributes() ?> aria-describedby="x_customer_id_help">
+</span>
+<selection-list hidden class="form-control" data-table="sales_order" data-field="x_customer_id" data-input="sv_x_customer_id" data-value-separator="<?= $Page->customer_id->displayValueSeparatorAttribute() ?>" name="x_customer_id" id="x_customer_id" value="<?= HtmlEncode($Page->customer_id->CurrentValue) ?>"<?= $onchange ?>></selection-list>
 <?= $Page->customer_id->getCustomMessage() ?>
 <div class="invalid-feedback"><?= $Page->customer_id->getErrorMessage() ?></div>
+<script>
+loadjs.ready("fsales_orderadd", function() {
+    fsales_orderadd.createAutoSuggest(Object.assign({"id":"x_customer_id","forceSelect":false}, ew.vars.tables.sales_order.fields.customer_id.autoSuggestOptions));
+});
+</script>
+<?= $Page->customer_id->Lookup->getParamTag($Page, "p_x_customer_id") ?>
 </span>
 </div></div>
     </div>
@@ -85,7 +103,7 @@ loadjs.ready(["fsales_orderadd", "datetimepicker"], function () {
             locale: ew.LANGUAGE_ID
         },
         display: {
-            format: "<?= DateFormat(0) ?>",
+            format: "<?= DateFormat(2) ?>",
             icons: {
                 previous: ew.IS_RTL ? "fas fa-chevron-right" : "fas fa-chevron-left",
                 next: ew.IS_RTL ? "fas fa-chevron-left" : "fas fa-chevron-right"
@@ -113,6 +131,14 @@ loadjs.ready(["fsales_orderadd", "datetimepicker"], function () {
     </div>
 <?php } ?>
 </div><!-- /page* -->
+<?php
+    if (in_array("sales_order_detail", explode(",", $Page->getCurrentDetailTable())) && $sales_order_detail->DetailAdd) {
+?>
+<?php if ($Page->getCurrentDetailTable() != "") { ?>
+<h4 class="ew-detail-caption"><?= $Language->tablePhrase("sales_order_detail", "TblCaption") ?></h4>
+<?php } ?>
+<?php include_once "SalesOrderDetailGrid.php" ?>
+<?php } ?>
 <?php if (!$Page->IsModal) { ?>
 <div class="row"><!-- buttons .row -->
     <div class="<?= $Page->OffsetColumnClass ?>"><!-- buttons offset -->

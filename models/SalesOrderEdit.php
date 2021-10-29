@@ -511,6 +511,7 @@ class SalesOrderEdit extends SalesOrder
         }
 
         // Set up lookup cache
+        $this->setupLookupOptions($this->customer_id);
 
         // Check modal
         if ($this->IsModal) {
@@ -580,6 +581,9 @@ class SalesOrderEdit extends SalesOrder
         // Process form if post back
         if ($postBack) {
             $this->loadFormValues(); // Get form values
+
+            // Set up detail parameters
+            $this->setupDetailParms();
         }
 
         // Validate form if post back
@@ -606,9 +610,16 @@ class SalesOrderEdit extends SalesOrder
                         $this->terminate("SalesOrderList"); // No matching record, return to list
                         return;
                     }
+
+                // Set up detail parameters
+                $this->setupDetailParms();
                 break;
             case "update": // Update
-                $returnUrl = $this->getReturnUrl();
+                if ($this->getCurrentDetailTable() != "") { // Master/detail edit
+                    $returnUrl = $this->getViewUrl(Config("TABLE_SHOW_DETAIL") . "=" . $this->getCurrentDetailTable()); // Master/Detail view page
+                } else {
+                    $returnUrl = $this->getReturnUrl();
+                }
                 if (GetPageName($returnUrl) == "SalesOrderList") {
                     $returnUrl = $this->addMasterUrl($returnUrl); // List page, return to List page with correct master key if necessary
                 }
@@ -633,6 +644,9 @@ class SalesOrderEdit extends SalesOrder
                 } else {
                     $this->EventCancelled = true; // Event cancelled
                     $this->restoreFormValues(); // Restore form values if update failed
+
+                    // Set up detail parameters
+                    $this->setupDetailParms();
                 }
         }
 
@@ -841,7 +855,27 @@ class SalesOrderEdit extends SalesOrder
 
             // customer_id
             $this->customer_id->ViewValue = $this->customer_id->CurrentValue;
-            $this->customer_id->ViewValue = FormatNumber($this->customer_id->ViewValue, $this->customer_id->formatPattern());
+            $curVal = strval($this->customer_id->CurrentValue);
+            if ($curVal != "") {
+                $this->customer_id->ViewValue = $this->customer_id->lookupCacheOption($curVal);
+                if ($this->customer_id->ViewValue === null) { // Lookup from database
+                    $filterWrk = "`customer_id`" . SearchString("=", $curVal, DATATYPE_NUMBER, "");
+                    $sqlWrk = $this->customer_id->Lookup->getSql(false, $filterWrk, '', $this, true, true);
+                    $conn = Conn();
+                    $config = $conn->getConfiguration();
+                    $config->setResultCacheImpl($this->Cache);
+                    $rswrk = $conn->executeCacheQuery($sqlWrk, [], [], $this->CacheProfile)->fetchAll();
+                    $ari = count($rswrk);
+                    if ($ari > 0) { // Lookup values found
+                        $arwrk = $this->customer_id->Lookup->renderViewRow($rswrk[0]);
+                        $this->customer_id->ViewValue = $this->customer_id->displayValue($arwrk);
+                    } else {
+                        $this->customer_id->ViewValue = FormatNumber($this->customer_id->CurrentValue, $this->customer_id->formatPattern());
+                    }
+                }
+            } else {
+                $this->customer_id->ViewValue = null;
+            }
             $this->customer_id->ViewCustomAttributes = "";
 
             // date
@@ -880,10 +914,28 @@ class SalesOrderEdit extends SalesOrder
             $this->customer_id->setupEditAttributes();
             $this->customer_id->EditCustomAttributes = "";
             $this->customer_id->EditValue = HtmlEncode($this->customer_id->CurrentValue);
-            $this->customer_id->PlaceHolder = RemoveHtml($this->customer_id->caption());
-            if (strval($this->customer_id->EditValue) != "" && is_numeric($this->customer_id->EditValue)) {
-                $this->customer_id->EditValue = FormatNumber($this->customer_id->EditValue, null);
+            $curVal = strval($this->customer_id->CurrentValue);
+            if ($curVal != "") {
+                $this->customer_id->EditValue = $this->customer_id->lookupCacheOption($curVal);
+                if ($this->customer_id->EditValue === null) { // Lookup from database
+                    $filterWrk = "`customer_id`" . SearchString("=", $curVal, DATATYPE_NUMBER, "");
+                    $sqlWrk = $this->customer_id->Lookup->getSql(false, $filterWrk, '', $this, true, true);
+                    $conn = Conn();
+                    $config = $conn->getConfiguration();
+                    $config->setResultCacheImpl($this->Cache);
+                    $rswrk = $conn->executeCacheQuery($sqlWrk, [], [], $this->CacheProfile)->fetchAll();
+                    $ari = count($rswrk);
+                    if ($ari > 0) { // Lookup values found
+                        $arwrk = $this->customer_id->Lookup->renderViewRow($rswrk[0]);
+                        $this->customer_id->EditValue = $this->customer_id->displayValue($arwrk);
+                    } else {
+                        $this->customer_id->EditValue = HtmlEncode(FormatNumber($this->customer_id->CurrentValue, $this->customer_id->formatPattern()));
+                    }
+                }
+            } else {
+                $this->customer_id->EditValue = null;
             }
+            $this->customer_id->PlaceHolder = RemoveHtml($this->customer_id->caption());
 
             // date
             $this->date->setupEditAttributes();
@@ -968,6 +1020,13 @@ class SalesOrderEdit extends SalesOrder
             $this->state->addErrorMessage($this->state->getErrorMessage(false));
         }
 
+        // Validate detail grid
+        $detailTblVar = explode(",", $this->getCurrentDetailTable());
+        $detailPage = Container("SalesOrderDetailGrid");
+        if (in_array("sales_order_detail", $detailTblVar) && $detailPage->DetailEdit) {
+            $validateForm = $validateForm && $detailPage->validateGridForm();
+        }
+
         // Return validate result
         $validateForm = $validateForm && !$this->hasInvalidFields();
 
@@ -994,6 +1053,11 @@ class SalesOrderEdit extends SalesOrder
             $this->setFailureMessage($Language->phrase("NoRecord")); // Set no record message
             $editRow = false; // Update Failed
         } else {
+            // Begin transaction
+            if ($this->getCurrentDetailTable() != "" && $this->UseTransaction) {
+                $conn->beginTransaction();
+            }
+
             // Save old values
             $this->loadDbValues($rsold);
             $rsnew = [];
@@ -1016,6 +1080,30 @@ class SalesOrderEdit extends SalesOrder
                     $editRow = true; // No field to update
                 }
                 if ($editRow) {
+                }
+
+                // Update detail records
+                $detailTblVar = explode(",", $this->getCurrentDetailTable());
+                if ($editRow) {
+                    $detailPage = Container("SalesOrderDetailGrid");
+                    if (in_array("sales_order_detail", $detailTblVar) && $detailPage->DetailEdit) {
+                        $Security->loadCurrentUserLevel($this->ProjectID . "sales_order_detail"); // Load user level of detail table
+                        $editRow = $detailPage->gridUpdate();
+                        $Security->loadCurrentUserLevel($this->ProjectID . $this->TableName); // Restore user level of master table
+                    }
+                }
+
+                // Commit/Rollback transaction
+                if ($this->getCurrentDetailTable() != "") {
+                    if ($editRow) {
+                        if ($this->UseTransaction) { // Commit transaction
+                            $conn->commit();
+                        }
+                    } else {
+                        if ($this->UseTransaction) { // Rollback transaction
+                            $conn->rollback();
+                        }
+                    }
                 }
             } else {
                 if ($this->getSuccessMessage() != "" || $this->getFailureMessage() != "") {
@@ -1047,6 +1135,35 @@ class SalesOrderEdit extends SalesOrder
         return $editRow;
     }
 
+    // Set up detail parms based on QueryString
+    protected function setupDetailParms()
+    {
+        // Get the keys for master table
+        $detailTblVar = Get(Config("TABLE_SHOW_DETAIL"));
+        if ($detailTblVar !== null) {
+            $this->setCurrentDetailTable($detailTblVar);
+        } else {
+            $detailTblVar = $this->getCurrentDetailTable();
+        }
+        if ($detailTblVar != "") {
+            $detailTblVar = explode(",", $detailTblVar);
+            if (in_array("sales_order_detail", $detailTblVar)) {
+                $detailPageObj = Container("SalesOrderDetailGrid");
+                if ($detailPageObj->DetailEdit) {
+                    $detailPageObj->CurrentMode = "edit";
+                    $detailPageObj->CurrentAction = "gridedit";
+
+                    // Save current master table to detail table
+                    $detailPageObj->setCurrentMasterTable($this->TableVar);
+                    $detailPageObj->setStartRecordNumber(1);
+                    $detailPageObj->sales_order_id->IsDetailKey = true;
+                    $detailPageObj->sales_order_id->CurrentValue = $this->order_id->CurrentValue;
+                    $detailPageObj->sales_order_id->setSessionValue($detailPageObj->sales_order_id->CurrentValue);
+                }
+            }
+        }
+    }
+
     // Set up Breadcrumb
     protected function setupBreadcrumb()
     {
@@ -1071,6 +1188,8 @@ class SalesOrderEdit extends SalesOrder
 
             // Set up lookup SQL and connection
             switch ($fld->FieldVar) {
+                case "x_customer_id":
+                    break;
                 default:
                     $lookupFilter = "";
                     break;

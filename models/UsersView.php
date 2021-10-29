@@ -561,6 +561,8 @@ class UsersView extends Users
         $this->role->setVisibility();
         $this->_email->setVisibility();
         $this->state->setVisibility();
+        $this->first_name->setVisibility();
+        $this->last_name->setVisibility();
         $this->hideFieldsForAddEdit();
 
         // Set lookup cache
@@ -577,6 +579,7 @@ class UsersView extends Users
         }
 
         // Set up lookup cache
+        $this->setupLookupOptions($this->role);
         $this->setupLookupOptions($this->state);
 
         // Check modal
@@ -830,6 +833,8 @@ class UsersView extends Users
         $this->role->setDbValue($row['role']);
         $this->_email->setDbValue($row['email']);
         $this->state->setDbValue($row['state']);
+        $this->first_name->setDbValue($row['first_name']);
+        $this->last_name->setDbValue($row['last_name']);
     }
 
     // Return a row with default values
@@ -842,6 +847,8 @@ class UsersView extends Users
         $row['role'] = null;
         $row['email'] = null;
         $row['state'] = null;
+        $row['first_name'] = null;
+        $row['last_name'] = null;
         return $row;
     }
 
@@ -875,6 +882,10 @@ class UsersView extends Users
 
         // state
 
+        // first_name
+
+        // last_name
+
         // View row
         if ($this->RowType == ROWTYPE_VIEW) {
             // user_id
@@ -886,12 +897,15 @@ class UsersView extends Users
             $this->name->ViewCustomAttributes = "";
 
             // password
-            $this->_password->ViewValue = $this->_password->CurrentValue;
+            $this->_password->ViewValue = $Language->phrase("PasswordMask");
             $this->_password->ViewCustomAttributes = "";
 
             // role
-            $this->role->ViewValue = $this->role->CurrentValue;
-            $this->role->ViewValue = FormatNumber($this->role->ViewValue, $this->role->formatPattern());
+            if (strval($this->role->CurrentValue) != "") {
+                $this->role->ViewValue = $this->role->optionCaption($this->role->CurrentValue);
+            } else {
+                $this->role->ViewValue = null;
+            }
             $this->role->ViewCustomAttributes = "";
 
             // email
@@ -905,6 +919,14 @@ class UsersView extends Users
                 $this->state->ViewValue = null;
             }
             $this->state->ViewCustomAttributes = "";
+
+            // first_name
+            $this->first_name->ViewValue = $this->first_name->CurrentValue;
+            $this->first_name->ViewCustomAttributes = "";
+
+            // last_name
+            $this->last_name->ViewValue = $this->last_name->CurrentValue;
+            $this->last_name->ViewCustomAttributes = "";
 
             // user_id
             $this->user_id->LinkCustomAttributes = "";
@@ -935,6 +957,16 @@ class UsersView extends Users
             $this->state->LinkCustomAttributes = "";
             $this->state->HrefValue = "";
             $this->state->TooltipValue = "";
+
+            // first_name
+            $this->first_name->LinkCustomAttributes = "";
+            $this->first_name->HrefValue = "";
+            $this->first_name->TooltipValue = "";
+
+            // last_name
+            $this->last_name->LinkCustomAttributes = "";
+            $this->last_name->HrefValue = "";
+            $this->last_name->TooltipValue = "";
         }
 
         // Call Row Rendered event
@@ -1161,6 +1193,8 @@ class UsersView extends Users
 
             // Set up lookup SQL and connection
             switch ($fld->FieldVar) {
+                case "x_role":
+                    break;
                 case "x_state":
                     break;
                 default:

@@ -41,6 +41,8 @@ loadjs.ready(["wrapper", "head"], function () {
     fsales_order_detailedit.validateRequired = ew.CLIENT_VALIDATE;
 
     // Dynamic selection lists
+    fsales_order_detailedit.lists.product_id = <?= $Page->product_id->toClientList($Page) ?>;
+    fsales_order_detailedit.lists.unit_price = <?= $Page->unit_price->toClientList($Page) ?>;
     loadjs.done("fsales_order_detailedit");
 });
 </script>
@@ -62,6 +64,10 @@ $Page->showMessage();
 <input type="hidden" name="action" id="action" value="update">
 <input type="hidden" name="modal" value="<?= (int)$Page->IsModal ?>">
 <input type="hidden" name="<?= $Page->OldKeyName ?>" value="<?= $Page->OldKey ?>">
+<?php if ($Page->getCurrentMasterTable() == "sales_order") { ?>
+<input type="hidden" name="<?= Config("TABLE_SHOW_MASTER") ?>" value="sales_order">
+<input type="hidden" name="fk_order_id" value="<?= HtmlEncode($Page->sales_order_id->getSessionValue()) ?>">
+<?php } ?>
 <div class="ew-edit-div"><!-- page* -->
 <?php if ($Page->order_detail_id->Visible) { // order_detail_id ?>
     <div id="r_order_detail_id"<?= $Page->order_detail_id->rowAttributes() ?>>
@@ -77,12 +83,29 @@ $Page->showMessage();
 <?php } ?>
 <?php if ($Page->product_id->Visible) { // product_id ?>
     <div id="r_product_id"<?= $Page->product_id->rowAttributes() ?>>
-        <label id="elh_sales_order_detail_product_id" for="x_product_id" class="<?= $Page->LeftColumnClass ?>"><?= $Page->product_id->caption() ?><?= $Page->product_id->Required ? $Language->phrase("FieldRequiredIndicator") : "" ?></label>
+        <label id="elh_sales_order_detail_product_id" class="<?= $Page->LeftColumnClass ?>"><?= $Page->product_id->caption() ?><?= $Page->product_id->Required ? $Language->phrase("FieldRequiredIndicator") : "" ?></label>
         <div class="<?= $Page->RightColumnClass ?>"><div<?= $Page->product_id->cellAttributes() ?>>
 <span id="el_sales_order_detail_product_id">
-<input type="<?= $Page->product_id->getInputTextType() ?>" name="x_product_id" id="x_product_id" data-table="sales_order_detail" data-field="x_product_id" value="<?= $Page->product_id->EditValue ?>" size="30" placeholder="<?= HtmlEncode($Page->product_id->getPlaceHolder()) ?>"<?= $Page->product_id->editAttributes() ?> aria-describedby="x_product_id_help">
+<?php
+$onchange = $Page->product_id->EditAttrs->prepend("onchange", "");
+$onchange = ($onchange) ? ' onchange="' . JsEncode($onchange) . '"' : '';
+$Page->product_id->EditAttrs["onchange"] = "";
+if (IsRTL()) {
+    $Page->product_id->EditAttrs["dir"] = "rtl";
+}
+?>
+<span id="as_x_product_id" class="ew-auto-suggest">
+    <input type="<?= $Page->product_id->getInputTextType() ?>" class="form-control" name="sv_x_product_id" id="sv_x_product_id" value="<?= RemoveHtml($Page->product_id->EditValue) ?>" size="30" placeholder="<?= HtmlEncode($Page->product_id->getPlaceHolder()) ?>" data-placeholder="<?= HtmlEncode($Page->product_id->getPlaceHolder()) ?>"<?= $Page->product_id->editAttributes() ?> aria-describedby="x_product_id_help">
+</span>
+<selection-list hidden class="form-control" data-table="sales_order_detail" data-field="x_product_id" data-input="sv_x_product_id" data-value-separator="<?= $Page->product_id->displayValueSeparatorAttribute() ?>" name="x_product_id" id="x_product_id" value="<?= HtmlEncode($Page->product_id->CurrentValue) ?>"<?= $onchange ?>></selection-list>
 <?= $Page->product_id->getCustomMessage() ?>
 <div class="invalid-feedback"><?= $Page->product_id->getErrorMessage() ?></div>
+<script>
+loadjs.ready("fsales_order_detailedit", function() {
+    fsales_order_detailedit.createAutoSuggest(Object.assign({"id":"x_product_id","forceSelect":false}, ew.vars.tables.sales_order_detail.fields.product_id.autoSuggestOptions));
+});
+</script>
+<?= $Page->product_id->Lookup->getParamTag($Page, "p_x_product_id") ?>
 </span>
 </div></div>
     </div>
@@ -91,11 +114,19 @@ $Page->showMessage();
     <div id="r_sales_order_id"<?= $Page->sales_order_id->rowAttributes() ?>>
         <label id="elh_sales_order_detail_sales_order_id" for="x_sales_order_id" class="<?= $Page->LeftColumnClass ?>"><?= $Page->sales_order_id->caption() ?><?= $Page->sales_order_id->Required ? $Language->phrase("FieldRequiredIndicator") : "" ?></label>
         <div class="<?= $Page->RightColumnClass ?>"><div<?= $Page->sales_order_id->cellAttributes() ?>>
+<?php if ($Page->sales_order_id->getSessionValue() != "") { ?>
+<span id="el_sales_order_detail_sales_order_id">
+<span<?= $Page->sales_order_id->viewAttributes() ?>>
+<input type="text" readonly class="form-control-plaintext" value="<?= HtmlEncode(RemoveHtml($Page->sales_order_id->getDisplayValue($Page->sales_order_id->ViewValue))) ?>"></span>
+</span>
+<input type="hidden" id="x_sales_order_id" name="x_sales_order_id" value="<?= HtmlEncode(FormatNumber($Page->sales_order_id->CurrentValue, $Page->sales_order_id->formatPattern())) ?>" data-hidden="1">
+<?php } else { ?>
 <span id="el_sales_order_detail_sales_order_id">
 <input type="<?= $Page->sales_order_id->getInputTextType() ?>" name="x_sales_order_id" id="x_sales_order_id" data-table="sales_order_detail" data-field="x_sales_order_id" value="<?= $Page->sales_order_id->EditValue ?>" size="30" placeholder="<?= HtmlEncode($Page->sales_order_id->getPlaceHolder()) ?>"<?= $Page->sales_order_id->editAttributes() ?> aria-describedby="x_sales_order_id_help">
 <?= $Page->sales_order_id->getCustomMessage() ?>
 <div class="invalid-feedback"><?= $Page->sales_order_id->getErrorMessage() ?></div>
 </span>
+<?php } ?>
 </div></div>
     </div>
 <?php } ?>
@@ -125,12 +156,29 @@ $Page->showMessage();
 <?php } ?>
 <?php if ($Page->unit_price->Visible) { // unit_price ?>
     <div id="r_unit_price"<?= $Page->unit_price->rowAttributes() ?>>
-        <label id="elh_sales_order_detail_unit_price" for="x_unit_price" class="<?= $Page->LeftColumnClass ?>"><?= $Page->unit_price->caption() ?><?= $Page->unit_price->Required ? $Language->phrase("FieldRequiredIndicator") : "" ?></label>
+        <label id="elh_sales_order_detail_unit_price" class="<?= $Page->LeftColumnClass ?>"><?= $Page->unit_price->caption() ?><?= $Page->unit_price->Required ? $Language->phrase("FieldRequiredIndicator") : "" ?></label>
         <div class="<?= $Page->RightColumnClass ?>"><div<?= $Page->unit_price->cellAttributes() ?>>
 <span id="el_sales_order_detail_unit_price">
-<input type="<?= $Page->unit_price->getInputTextType() ?>" name="x_unit_price" id="x_unit_price" data-table="sales_order_detail" data-field="x_unit_price" value="<?= $Page->unit_price->EditValue ?>" size="30" placeholder="<?= HtmlEncode($Page->unit_price->getPlaceHolder()) ?>"<?= $Page->unit_price->editAttributes() ?> aria-describedby="x_unit_price_help">
+<?php
+$onchange = $Page->unit_price->EditAttrs->prepend("onchange", "");
+$onchange = ($onchange) ? ' onchange="' . JsEncode($onchange) . '"' : '';
+$Page->unit_price->EditAttrs["onchange"] = "";
+if (IsRTL()) {
+    $Page->unit_price->EditAttrs["dir"] = "rtl";
+}
+?>
+<span id="as_x_unit_price" class="ew-auto-suggest">
+    <input type="<?= $Page->unit_price->getInputTextType() ?>" class="form-control" name="sv_x_unit_price" id="sv_x_unit_price" value="<?= RemoveHtml($Page->unit_price->EditValue) ?>" size="30" placeholder="<?= HtmlEncode($Page->unit_price->getPlaceHolder()) ?>" data-placeholder="<?= HtmlEncode($Page->unit_price->getPlaceHolder()) ?>"<?= $Page->unit_price->editAttributes() ?> aria-describedby="x_unit_price_help">
+</span>
+<selection-list hidden class="form-control" data-table="sales_order_detail" data-field="x_unit_price" data-input="sv_x_unit_price" data-value-separator="<?= $Page->unit_price->displayValueSeparatorAttribute() ?>" name="x_unit_price" id="x_unit_price" value="<?= HtmlEncode($Page->unit_price->CurrentValue) ?>"<?= $onchange ?>></selection-list>
 <?= $Page->unit_price->getCustomMessage() ?>
 <div class="invalid-feedback"><?= $Page->unit_price->getErrorMessage() ?></div>
+<script>
+loadjs.ready("fsales_order_detailedit", function() {
+    fsales_order_detailedit.createAutoSuggest(Object.assign({"id":"x_unit_price","forceSelect":false}, ew.vars.tables.sales_order_detail.fields.unit_price.autoSuggestOptions));
+});
+</script>
+<?= $Page->unit_price->Lookup->getParamTag($Page, "p_x_unit_price") ?>
 </span>
 </div></div>
     </div>

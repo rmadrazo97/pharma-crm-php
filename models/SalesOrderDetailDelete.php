@@ -420,6 +420,11 @@ class SalesOrderDetailDelete extends SalesOrderDetail
         }
 
         // Set up lookup cache
+        $this->setupLookupOptions($this->product_id);
+        $this->setupLookupOptions($this->unit_price);
+
+        // Set up master/detail parameters
+        $this->setupMasterParms();
 
         // Set up Breadcrumb
         $this->setupBreadcrumb();
@@ -652,7 +657,27 @@ class SalesOrderDetailDelete extends SalesOrderDetail
 
             // product_id
             $this->product_id->ViewValue = $this->product_id->CurrentValue;
-            $this->product_id->ViewValue = FormatNumber($this->product_id->ViewValue, $this->product_id->formatPattern());
+            $curVal = strval($this->product_id->CurrentValue);
+            if ($curVal != "") {
+                $this->product_id->ViewValue = $this->product_id->lookupCacheOption($curVal);
+                if ($this->product_id->ViewValue === null) { // Lookup from database
+                    $filterWrk = "`product_id`" . SearchString("=", $curVal, DATATYPE_NUMBER, "");
+                    $sqlWrk = $this->product_id->Lookup->getSql(false, $filterWrk, '', $this, true, true);
+                    $conn = Conn();
+                    $config = $conn->getConfiguration();
+                    $config->setResultCacheImpl($this->Cache);
+                    $rswrk = $conn->executeCacheQuery($sqlWrk, [], [], $this->CacheProfile)->fetchAll();
+                    $ari = count($rswrk);
+                    if ($ari > 0) { // Lookup values found
+                        $arwrk = $this->product_id->Lookup->renderViewRow($rswrk[0]);
+                        $this->product_id->ViewValue = $this->product_id->displayValue($arwrk);
+                    } else {
+                        $this->product_id->ViewValue = FormatNumber($this->product_id->CurrentValue, $this->product_id->formatPattern());
+                    }
+                }
+            } else {
+                $this->product_id->ViewValue = null;
+            }
             $this->product_id->ViewCustomAttributes = "";
 
             // sales_order_id
@@ -667,7 +692,27 @@ class SalesOrderDetailDelete extends SalesOrderDetail
 
             // unit_price
             $this->unit_price->ViewValue = $this->unit_price->CurrentValue;
-            $this->unit_price->ViewValue = FormatNumber($this->unit_price->ViewValue, $this->unit_price->formatPattern());
+            $curVal = strval($this->unit_price->CurrentValue);
+            if ($curVal != "") {
+                $this->unit_price->ViewValue = $this->unit_price->lookupCacheOption($curVal);
+                if ($this->unit_price->ViewValue === null) { // Lookup from database
+                    $filterWrk = "`price`" . SearchString("=", $curVal, DATATYPE_NUMBER, "");
+                    $sqlWrk = $this->unit_price->Lookup->getSql(false, $filterWrk, '', $this, true, true);
+                    $conn = Conn();
+                    $config = $conn->getConfiguration();
+                    $config->setResultCacheImpl($this->Cache);
+                    $rswrk = $conn->executeCacheQuery($sqlWrk, [], [], $this->CacheProfile)->fetchAll();
+                    $ari = count($rswrk);
+                    if ($ari > 0) { // Lookup values found
+                        $arwrk = $this->unit_price->Lookup->renderViewRow($rswrk[0]);
+                        $this->unit_price->ViewValue = $this->unit_price->displayValue($arwrk);
+                    } else {
+                        $this->unit_price->ViewValue = FormatNumber($this->unit_price->CurrentValue, $this->unit_price->formatPattern());
+                    }
+                }
+            } else {
+                $this->unit_price->ViewValue = null;
+            }
             $this->unit_price->ViewCustomAttributes = "";
 
             // sub_total
@@ -820,6 +865,75 @@ class SalesOrderDetailDelete extends SalesOrderDetail
         return $deleteRows;
     }
 
+    // Set up master/detail based on QueryString
+    protected function setupMasterParms()
+    {
+        $validMaster = false;
+        // Get the keys for master table
+        if (($master = Get(Config("TABLE_SHOW_MASTER"), Get(Config("TABLE_MASTER")))) !== null) {
+            $masterTblVar = $master;
+            if ($masterTblVar == "") {
+                $validMaster = true;
+                $this->DbMasterFilter = "";
+                $this->DbDetailFilter = "";
+            }
+            if ($masterTblVar == "sales_order") {
+                $validMaster = true;
+                $masterTbl = Container("sales_order");
+                if (($parm = Get("fk_order_id", Get("sales_order_id"))) !== null) {
+                    $masterTbl->order_id->setQueryStringValue($parm);
+                    $this->sales_order_id->setQueryStringValue($masterTbl->order_id->QueryStringValue);
+                    $this->sales_order_id->setSessionValue($this->sales_order_id->QueryStringValue);
+                    if (!is_numeric($masterTbl->order_id->QueryStringValue)) {
+                        $validMaster = false;
+                    }
+                } else {
+                    $validMaster = false;
+                }
+            }
+        } elseif (($master = Post(Config("TABLE_SHOW_MASTER"), Post(Config("TABLE_MASTER")))) !== null) {
+            $masterTblVar = $master;
+            if ($masterTblVar == "") {
+                    $validMaster = true;
+                    $this->DbMasterFilter = "";
+                    $this->DbDetailFilter = "";
+            }
+            if ($masterTblVar == "sales_order") {
+                $validMaster = true;
+                $masterTbl = Container("sales_order");
+                if (($parm = Post("fk_order_id", Post("sales_order_id"))) !== null) {
+                    $masterTbl->order_id->setFormValue($parm);
+                    $this->sales_order_id->setFormValue($masterTbl->order_id->FormValue);
+                    $this->sales_order_id->setSessionValue($this->sales_order_id->FormValue);
+                    if (!is_numeric($masterTbl->order_id->FormValue)) {
+                        $validMaster = false;
+                    }
+                } else {
+                    $validMaster = false;
+                }
+            }
+        }
+        if ($validMaster) {
+            // Save current master table
+            $this->setCurrentMasterTable($masterTblVar);
+
+            // Reset start record counter (new master key)
+            if (!$this->isAddOrEdit()) {
+                $this->StartRecord = 1;
+                $this->setStartRecordNumber($this->StartRecord);
+            }
+
+            // Clear previous master key from Session
+            if ($masterTblVar != "sales_order") {
+                if ($this->sales_order_id->CurrentValue == "") {
+                    $this->sales_order_id->setSessionValue("");
+                }
+            }
+        }
+        $this->DbMasterFilter = $this->getMasterFilterFromSession(); // Get master filter from session
+        $this->DbDetailFilter = $this->getDetailFilterFromSession(); // Get detail filter from session
+    }
+
     // Set up Breadcrumb
     protected function setupBreadcrumb()
     {
@@ -844,6 +958,10 @@ class SalesOrderDetailDelete extends SalesOrderDetail
 
             // Set up lookup SQL and connection
             switch ($fld->FieldVar) {
+                case "x_product_id":
+                    break;
+                case "x_unit_price":
+                    break;
                 default:
                     $lookupFilter = "";
                     break;

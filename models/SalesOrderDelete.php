@@ -415,6 +415,7 @@ class SalesOrderDelete extends SalesOrder
         }
 
         // Set up lookup cache
+        $this->setupLookupOptions($this->customer_id);
 
         // Set up Breadcrumb
         $this->setupBreadcrumb();
@@ -627,7 +628,27 @@ class SalesOrderDelete extends SalesOrder
 
             // customer_id
             $this->customer_id->ViewValue = $this->customer_id->CurrentValue;
-            $this->customer_id->ViewValue = FormatNumber($this->customer_id->ViewValue, $this->customer_id->formatPattern());
+            $curVal = strval($this->customer_id->CurrentValue);
+            if ($curVal != "") {
+                $this->customer_id->ViewValue = $this->customer_id->lookupCacheOption($curVal);
+                if ($this->customer_id->ViewValue === null) { // Lookup from database
+                    $filterWrk = "`customer_id`" . SearchString("=", $curVal, DATATYPE_NUMBER, "");
+                    $sqlWrk = $this->customer_id->Lookup->getSql(false, $filterWrk, '', $this, true, true);
+                    $conn = Conn();
+                    $config = $conn->getConfiguration();
+                    $config->setResultCacheImpl($this->Cache);
+                    $rswrk = $conn->executeCacheQuery($sqlWrk, [], [], $this->CacheProfile)->fetchAll();
+                    $ari = count($rswrk);
+                    if ($ari > 0) { // Lookup values found
+                        $arwrk = $this->customer_id->Lookup->renderViewRow($rswrk[0]);
+                        $this->customer_id->ViewValue = $this->customer_id->displayValue($arwrk);
+                    } else {
+                        $this->customer_id->ViewValue = FormatNumber($this->customer_id->CurrentValue, $this->customer_id->formatPattern());
+                    }
+                }
+            } else {
+                $this->customer_id->ViewValue = null;
+            }
             $this->customer_id->ViewCustomAttributes = "";
 
             // date
@@ -779,6 +800,8 @@ class SalesOrderDelete extends SalesOrder
 
             // Set up lookup SQL and connection
             switch ($fld->FieldVar) {
+                case "x_customer_id":
+                    break;
                 default:
                     $lookupFilter = "";
                     break;

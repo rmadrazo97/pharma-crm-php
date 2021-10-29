@@ -139,7 +139,6 @@ $Page->showMessage();
         <label id="elh_customers_user_id" for="x_user_id" class="<?= $Page->LeftColumnClass ?>"><?= $Page->user_id->caption() ?><?= $Page->user_id->Required ? $Language->phrase("FieldRequiredIndicator") : "" ?></label>
         <div class="<?= $Page->RightColumnClass ?>"><div<?= $Page->user_id->cellAttributes() ?>>
 <span id="el_customers_user_id">
-<?php $Page->user_id->EditAttrs->prepend("onchange", "ew.updateOptions.call(this);"); ?>
     <select
         id="x_user_id"
         name="x_user_id"

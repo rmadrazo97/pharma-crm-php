@@ -274,10 +274,10 @@ class Customers extends DbTable
         $this->user_id->PleaseSelectText = $Language->phrase("PleaseSelect"); // "PleaseSelect" text
         switch ($CurrentLanguage) {
             case "en-US":
-                $this->user_id->Lookup = new Lookup('user_id', 'users', false, 'user_id', ["user_id","name","",""], ["x_user_id","x_user_id"], ["x_user_id","x_user_id"], ["user_id","user_id"], ["x_user_id","x_user_id"], [], [], '', '', "CONCAT(COALESCE(`user_id`, ''),'" . ValueSeparator(1, $this->user_id) . "',COALESCE(`name`,''))");
+                $this->user_id->Lookup = new Lookup('user_id', 'users', false, 'user_id', ["user_id","name","first_name","last_name"], [], [], [], [], [], [], '', '', "CONCAT(COALESCE(`user_id`, ''),'" . ValueSeparator(1, $this->user_id) . "',COALESCE(`name`,''),'" . ValueSeparator(2, $this->user_id) . "',COALESCE(`first_name`,''),'" . ValueSeparator(3, $this->user_id) . "',COALESCE(`last_name`,''))");
                 break;
             default:
-                $this->user_id->Lookup = new Lookup('user_id', 'users', false, 'user_id', ["user_id","name","",""], ["x_user_id","x_user_id"], ["x_user_id","x_user_id"], ["user_id","user_id"], ["x_user_id","x_user_id"], [], [], '', '', "CONCAT(COALESCE(`user_id`, ''),'" . ValueSeparator(1, $this->user_id) . "',COALESCE(`name`,''))");
+                $this->user_id->Lookup = new Lookup('user_id', 'users', false, 'user_id', ["user_id","name","first_name","last_name"], [], [], [], [], [], [], '', '', "CONCAT(COALESCE(`user_id`, ''),'" . ValueSeparator(1, $this->user_id) . "',COALESCE(`name`,''),'" . ValueSeparator(2, $this->user_id) . "',COALESCE(`first_name`,''),'" . ValueSeparator(3, $this->user_id) . "',COALESCE(`last_name`,''))");
                 break;
         }
         $this->user_id->DefaultErrorMessage = $Language->phrase("IncorrectInteger");

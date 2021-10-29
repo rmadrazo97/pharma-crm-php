@@ -95,6 +95,7 @@ class SalesOrder extends DbTable
         $this->order_id->InputTextType = "text";
         $this->order_id->IsAutoIncrement = true; // Autoincrement field
         $this->order_id->IsPrimaryKey = true; // Primary key field
+        $this->order_id->IsForeignKey = true; // Foreign key field
         $this->order_id->DefaultErrorMessage = $Language->phrase("IncorrectInteger");
         $this->Fields['order_id'] = &$this->order_id;
 
@@ -120,6 +121,14 @@ class SalesOrder extends DbTable
         $this->customer_id->InputTextType = "text";
         $this->customer_id->Nullable = false; // NOT NULL field
         $this->customer_id->Required = true; // Required field
+        switch ($CurrentLanguage) {
+            case "en-US":
+                $this->customer_id->Lookup = new Lookup('customer_id', 'customers', false, 'customer_id', ["customer_id","name","phone","email"], [], [], [], [], [], [], '', '', "CONCAT(COALESCE(`customer_id`, ''),'" . ValueSeparator(1, $this->customer_id) . "',COALESCE(`name`,''),'" . ValueSeparator(2, $this->customer_id) . "',COALESCE(`phone`,''),'" . ValueSeparator(3, $this->customer_id) . "',COALESCE(`email`,''))");
+                break;
+            default:
+                $this->customer_id->Lookup = new Lookup('customer_id', 'customers', false, 'customer_id', ["customer_id","name","phone","email"], [], [], [], [], [], [], '', '', "CONCAT(COALESCE(`customer_id`, ''),'" . ValueSeparator(1, $this->customer_id) . "',COALESCE(`name`,''),'" . ValueSeparator(2, $this->customer_id) . "',COALESCE(`phone`,''),'" . ValueSeparator(3, $this->customer_id) . "',COALESCE(`email`,''))");
+                break;
+        }
         $this->customer_id->DefaultErrorMessage = $Language->phrase("IncorrectInteger");
         $this->Fields['customer_id'] = &$this->customer_id;
 
@@ -130,10 +139,10 @@ class SalesOrder extends DbTable
             'x_date',
             'date',
             '`date`',
-            CastDateFieldForLike("`date`", 0, "DB"),
+            CastDateFieldForLike("`date`", 2, "DB"),
             133,
             10,
-            0,
+            2,
             false,
             '`date`',
             false,
@@ -145,7 +154,7 @@ class SalesOrder extends DbTable
         $this->date->InputTextType = "text";
         $this->date->Nullable = false; // NOT NULL field
         $this->date->Required = true; // Required field
-        $this->date->DefaultErrorMessage = str_replace("%s", $GLOBALS["DATE_FORMAT"], $Language->phrase("IncorrectDate"));
+        $this->date->DefaultErrorMessage = str_replace("%s", DateFormat(2), $Language->phrase("IncorrectDate"));
         $this->Fields['date'] = &$this->date;
 
         // state
@@ -213,6 +222,32 @@ class SalesOrder extends DbTable
         } else {
             $fld->setSort("");
         }
+    }
+
+    // Current detail table name
+    public function getCurrentDetailTable()
+    {
+        return Session(PROJECT_NAME . "_" . $this->TableVar . "_" . Config("TABLE_DETAIL_TABLE"));
+    }
+
+    public function setCurrentDetailTable($v)
+    {
+        $_SESSION[PROJECT_NAME . "_" . $this->TableVar . "_" . Config("TABLE_DETAIL_TABLE")] = $v;
+    }
+
+    // Get detail url
+    public function getDetailUrl()
+    {
+        // Detail url
+        $detailUrl = "";
+        if ($this->getCurrentDetailTable() == "sales_order_detail") {
+            $detailUrl = Container("sales_order_detail")->getListUrl() . "?" . Config("TABLE_SHOW_MASTER") . "=" . $this->TableVar;
+            $detailUrl .= "&" . GetForeignKeyUrl("fk_order_id", $this->order_id->CurrentValue);
+        }
+        if ($detailUrl == "") {
+            $detailUrl = "SalesOrderList";
+        }
+        return $detailUrl;
     }
 
     // Table level SQL
@@ -541,6 +576,33 @@ class SalesOrder extends DbTable
     // Update
     public function update(&$rs, $where = "", $rsold = null, $curfilter = true)
     {
+        // Cascade Update detail table 'sales_order_detail'
+        $cascadeUpdate = false;
+        $rscascade = [];
+        if ($rsold && (isset($rs['order_id']) && $rsold['order_id'] != $rs['order_id'])) { // Update detail field 'sales_order_id'
+            $cascadeUpdate = true;
+            $rscascade['sales_order_id'] = $rs['order_id'];
+        }
+        if ($cascadeUpdate) {
+            $rswrk = Container("sales_order_detail")->loadRs("`sales_order_id` = " . QuotedValue($rsold['order_id'], DATATYPE_NUMBER, 'DB'))->fetchAllAssociative();
+            foreach ($rswrk as $rsdtlold) {
+                $rskey = [];
+                $fldname = 'order_detail_id';
+                $rskey[$fldname] = $rsdtlold[$fldname];
+                $rsdtlnew = array_merge($rsdtlold, $rscascade);
+                // Call Row_Updating event
+                $success = Container("sales_order_detail")->rowUpdating($rsdtlold, $rsdtlnew);
+                if ($success) {
+                    $success = Container("sales_order_detail")->update($rscascade, $rskey, $rsdtlold);
+                }
+                if (!$success) {
+                    return false;
+                }
+                // Call Row_Updated event
+                Container("sales_order_detail")->rowUpdated($rsdtlold, $rsdtlnew);
+            }
+        }
+
         // If no field is updated, execute may return 0. Treat as success
         $success = $this->updateSql($rs, $where, $curfilter)->execute();
         $success = ($success > 0) ? $success : true;
@@ -576,6 +638,30 @@ class SalesOrder extends DbTable
     public function delete(&$rs, $where = "", $curfilter = false)
     {
         $success = true;
+
+        // Cascade delete detail table 'sales_order_detail'
+        $dtlrows = Container("sales_order_detail")->loadRs("`sales_order_id` = " . QuotedValue($rs['order_id'], DATATYPE_NUMBER, "DB"))->fetchAllAssociative();
+        // Call Row Deleting event
+        foreach ($dtlrows as $dtlrow) {
+            $success = Container("sales_order_detail")->rowDeleting($dtlrow);
+            if (!$success) {
+                break;
+            }
+        }
+        if ($success) {
+            foreach ($dtlrows as $dtlrow) {
+                $success = Container("sales_order_detail")->delete($dtlrow); // Delete
+                if (!$success) {
+                    break;
+                }
+            }
+        }
+        // Call Row Deleted event
+        if ($success) {
+            foreach ($dtlrows as $dtlrow) {
+                Container("sales_order_detail")->rowDeleted($dtlrow);
+            }
+        }
         if ($success) {
             $success = $this->deleteSql($rs, $where, $curfilter)->execute();
         }
@@ -737,7 +823,11 @@ class SalesOrder extends DbTable
     // Edit URL
     public function getEditUrl($parm = "")
     {
-        $url = $this->keyUrl("SalesOrderEdit", $this->getUrlParm($parm));
+        if ($parm != "") {
+            $url = $this->keyUrl("SalesOrderEdit", $this->getUrlParm($parm));
+        } else {
+            $url = $this->keyUrl("SalesOrderEdit", $this->getUrlParm(Config("TABLE_SHOW_DETAIL") . "="));
+        }
         return $this->addMasterUrl($url);
     }
 
@@ -751,7 +841,11 @@ class SalesOrder extends DbTable
     // Copy URL
     public function getCopyUrl($parm = "")
     {
-        $url = $this->keyUrl("SalesOrderAdd", $this->getUrlParm($parm));
+        if ($parm != "") {
+            $url = $this->keyUrl("SalesOrderAdd", $this->getUrlParm($parm));
+        } else {
+            $url = $this->keyUrl("SalesOrderAdd", $this->getUrlParm(Config("TABLE_SHOW_DETAIL") . "="));
+        }
         return $this->addMasterUrl($url);
     }
 
@@ -940,7 +1034,27 @@ class SalesOrder extends DbTable
 
         // customer_id
         $this->customer_id->ViewValue = $this->customer_id->CurrentValue;
-        $this->customer_id->ViewValue = FormatNumber($this->customer_id->ViewValue, $this->customer_id->formatPattern());
+        $curVal = strval($this->customer_id->CurrentValue);
+        if ($curVal != "") {
+            $this->customer_id->ViewValue = $this->customer_id->lookupCacheOption($curVal);
+            if ($this->customer_id->ViewValue === null) { // Lookup from database
+                $filterWrk = "`customer_id`" . SearchString("=", $curVal, DATATYPE_NUMBER, "");
+                $sqlWrk = $this->customer_id->Lookup->getSql(false, $filterWrk, '', $this, true, true);
+                $conn = Conn();
+                $config = $conn->getConfiguration();
+                $config->setResultCacheImpl($this->Cache);
+                $rswrk = $conn->executeCacheQuery($sqlWrk, [], [], $this->CacheProfile)->fetchAll();
+                $ari = count($rswrk);
+                if ($ari > 0) { // Lookup values found
+                    $arwrk = $this->customer_id->Lookup->renderViewRow($rswrk[0]);
+                    $this->customer_id->ViewValue = $this->customer_id->displayValue($arwrk);
+                } else {
+                    $this->customer_id->ViewValue = FormatNumber($this->customer_id->CurrentValue, $this->customer_id->formatPattern());
+                }
+            }
+        } else {
+            $this->customer_id->ViewValue = null;
+        }
         $this->customer_id->ViewCustomAttributes = "";
 
         // date
@@ -999,9 +1113,6 @@ class SalesOrder extends DbTable
         $this->customer_id->EditCustomAttributes = "";
         $this->customer_id->EditValue = $this->customer_id->CurrentValue;
         $this->customer_id->PlaceHolder = RemoveHtml($this->customer_id->caption());
-        if (strval($this->customer_id->EditValue) != "" && is_numeric($this->customer_id->EditValue)) {
-            $this->customer_id->EditValue = FormatNumber($this->customer_id->EditValue, null);
-        }
 
         // date
         $this->date->setupEditAttributes();

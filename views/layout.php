@@ -66,6 +66,8 @@ var jqueryjs = [
     ew.PATH_BASE + "jquery/jqueryfileupload.min.js",
     ew.PATH_BASE + "jquery/typeahead.jquery.min.js"
 ];
+jqueryjs.push(ew.PATH_BASE + "jquery/pStrength.jquery.min.js");
+jqueryjs.push(ew.PATH_BASE + "jquery/pGenerator.jquery.min.js");
 jqueryjs.push(ew.PATH_BASE + "colorbox/jquery.colorbox.min.js");
 jqueryjs.push(ew.PATH_BASE + "js/pdfobject.min.js");
 ew.ready(["jquery", "dom", "popper"], ew.PATH_BASE + "bootstrap5/js/bootstrap.min.js", "bootstrap"); // Bootstrap
@@ -410,7 +412,6 @@ loadjs.ready(ew.bundleIds, function() {
     if (!loadjs.isDefined("foot"))
         loadjs.done("foot");
 });
-$('.brand-text').text('DAP');
 </script>
 </body>
 </html>

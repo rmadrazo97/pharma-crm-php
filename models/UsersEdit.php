@@ -497,6 +497,8 @@ class UsersEdit extends Users
         $this->role->setVisibility();
         $this->_email->setVisibility();
         $this->state->setVisibility();
+        $this->first_name->setVisibility();
+        $this->last_name->setVisibility();
         $this->hideFieldsForAddEdit();
 
         // Set lookup cache
@@ -513,6 +515,7 @@ class UsersEdit extends Users
         }
 
         // Set up lookup cache
+        $this->setupLookupOptions($this->role);
         $this->setupLookupOptions($this->state);
 
         // Check modal
@@ -715,7 +718,7 @@ class UsersEdit extends Users
             if (IsApi() && $val === null) {
                 $this->role->Visible = false; // Disable update for API request
             } else {
-                $this->role->setFormValue($val, true, $validate);
+                $this->role->setFormValue($val);
             }
         }
 
@@ -738,6 +741,26 @@ class UsersEdit extends Users
                 $this->state->setFormValue($val);
             }
         }
+
+        // Check field name 'first_name' first before field var 'x_first_name'
+        $val = $CurrentForm->hasValue("first_name") ? $CurrentForm->getValue("first_name") : $CurrentForm->getValue("x_first_name");
+        if (!$this->first_name->IsDetailKey) {
+            if (IsApi() && $val === null) {
+                $this->first_name->Visible = false; // Disable update for API request
+            } else {
+                $this->first_name->setFormValue($val);
+            }
+        }
+
+        // Check field name 'last_name' first before field var 'x_last_name'
+        $val = $CurrentForm->hasValue("last_name") ? $CurrentForm->getValue("last_name") : $CurrentForm->getValue("x_last_name");
+        if (!$this->last_name->IsDetailKey) {
+            if (IsApi() && $val === null) {
+                $this->last_name->Visible = false; // Disable update for API request
+            } else {
+                $this->last_name->setFormValue($val);
+            }
+        }
     }
 
     // Restore form values
@@ -750,6 +773,8 @@ class UsersEdit extends Users
         $this->role->CurrentValue = $this->role->FormValue;
         $this->_email->CurrentValue = $this->_email->FormValue;
         $this->state->CurrentValue = $this->state->FormValue;
+        $this->first_name->CurrentValue = $this->first_name->FormValue;
+        $this->last_name->CurrentValue = $this->last_name->FormValue;
     }
 
     /**
@@ -805,6 +830,8 @@ class UsersEdit extends Users
         $this->role->setDbValue($row['role']);
         $this->_email->setDbValue($row['email']);
         $this->state->setDbValue($row['state']);
+        $this->first_name->setDbValue($row['first_name']);
+        $this->last_name->setDbValue($row['last_name']);
     }
 
     // Return a row with default values
@@ -817,6 +844,8 @@ class UsersEdit extends Users
         $row['role'] = null;
         $row['email'] = null;
         $row['state'] = null;
+        $row['first_name'] = null;
+        $row['last_name'] = null;
         return $row;
     }
 
@@ -866,6 +895,12 @@ class UsersEdit extends Users
         // state
         $this->state->RowCssClass = "row";
 
+        // first_name
+        $this->first_name->RowCssClass = "row";
+
+        // last_name
+        $this->last_name->RowCssClass = "row";
+
         // View row
         if ($this->RowType == ROWTYPE_VIEW) {
             // user_id
@@ -877,12 +912,15 @@ class UsersEdit extends Users
             $this->name->ViewCustomAttributes = "";
 
             // password
-            $this->_password->ViewValue = $this->_password->CurrentValue;
+            $this->_password->ViewValue = $Language->phrase("PasswordMask");
             $this->_password->ViewCustomAttributes = "";
 
             // role
-            $this->role->ViewValue = $this->role->CurrentValue;
-            $this->role->ViewValue = FormatNumber($this->role->ViewValue, $this->role->formatPattern());
+            if (strval($this->role->CurrentValue) != "") {
+                $this->role->ViewValue = $this->role->optionCaption($this->role->CurrentValue);
+            } else {
+                $this->role->ViewValue = null;
+            }
             $this->role->ViewCustomAttributes = "";
 
             // email
@@ -896,6 +934,14 @@ class UsersEdit extends Users
                 $this->state->ViewValue = null;
             }
             $this->state->ViewCustomAttributes = "";
+
+            // first_name
+            $this->first_name->ViewValue = $this->first_name->CurrentValue;
+            $this->first_name->ViewCustomAttributes = "";
+
+            // last_name
+            $this->last_name->ViewValue = $this->last_name->CurrentValue;
+            $this->last_name->ViewCustomAttributes = "";
 
             // user_id
             $this->user_id->LinkCustomAttributes = "";
@@ -920,6 +966,14 @@ class UsersEdit extends Users
             // state
             $this->state->LinkCustomAttributes = "";
             $this->state->HrefValue = "";
+
+            // first_name
+            $this->first_name->LinkCustomAttributes = "";
+            $this->first_name->HrefValue = "";
+
+            // last_name
+            $this->last_name->LinkCustomAttributes = "";
+            $this->last_name->HrefValue = "";
         } elseif ($this->RowType == ROWTYPE_EDIT) {
             // user_id
             $this->user_id->setupEditAttributes();
@@ -930,27 +984,30 @@ class UsersEdit extends Users
             // name
             $this->name->setupEditAttributes();
             $this->name->EditCustomAttributes = "";
+            if (!$this->name->Raw) {
+                $this->name->CurrentValue = HtmlDecode($this->name->CurrentValue);
+            }
             $this->name->EditValue = HtmlEncode($this->name->CurrentValue);
             $this->name->PlaceHolder = RemoveHtml($this->name->caption());
 
             // password
-            $this->_password->setupEditAttributes();
+            $this->_password->setupEditAttributes(["class" => "ew-password-strength"]);
             $this->_password->EditCustomAttributes = "";
-            $this->_password->EditValue = HtmlEncode($this->_password->CurrentValue);
+            $this->_password->EditValue = $Language->phrase("PasswordMask"); // Show as masked password
             $this->_password->PlaceHolder = RemoveHtml($this->_password->caption());
 
             // role
             $this->role->setupEditAttributes();
             $this->role->EditCustomAttributes = "";
-            $this->role->EditValue = HtmlEncode($this->role->CurrentValue);
+            $this->role->EditValue = $this->role->options(true);
             $this->role->PlaceHolder = RemoveHtml($this->role->caption());
-            if (strval($this->role->EditValue) != "" && is_numeric($this->role->EditValue)) {
-                $this->role->EditValue = FormatNumber($this->role->EditValue, null);
-            }
 
             // email
             $this->_email->setupEditAttributes();
             $this->_email->EditCustomAttributes = "";
+            if (!$this->_email->Raw) {
+                $this->_email->CurrentValue = HtmlDecode($this->_email->CurrentValue);
+            }
             $this->_email->EditValue = HtmlEncode($this->_email->CurrentValue);
             $this->_email->PlaceHolder = RemoveHtml($this->_email->caption());
 
@@ -959,6 +1016,24 @@ class UsersEdit extends Users
             $this->state->EditCustomAttributes = "";
             $this->state->EditValue = $this->state->options(true);
             $this->state->PlaceHolder = RemoveHtml($this->state->caption());
+
+            // first_name
+            $this->first_name->setupEditAttributes();
+            $this->first_name->EditCustomAttributes = "";
+            if (!$this->first_name->Raw) {
+                $this->first_name->CurrentValue = HtmlDecode($this->first_name->CurrentValue);
+            }
+            $this->first_name->EditValue = HtmlEncode($this->first_name->CurrentValue);
+            $this->first_name->PlaceHolder = RemoveHtml($this->first_name->caption());
+
+            // last_name
+            $this->last_name->setupEditAttributes();
+            $this->last_name->EditCustomAttributes = "";
+            if (!$this->last_name->Raw) {
+                $this->last_name->CurrentValue = HtmlDecode($this->last_name->CurrentValue);
+            }
+            $this->last_name->EditValue = HtmlEncode($this->last_name->CurrentValue);
+            $this->last_name->PlaceHolder = RemoveHtml($this->last_name->caption());
 
             // Edit refer script
 
@@ -985,6 +1060,14 @@ class UsersEdit extends Users
             // state
             $this->state->LinkCustomAttributes = "";
             $this->state->HrefValue = "";
+
+            // first_name
+            $this->first_name->LinkCustomAttributes = "";
+            $this->first_name->HrefValue = "";
+
+            // last_name
+            $this->last_name->LinkCustomAttributes = "";
+            $this->last_name->HrefValue = "";
         }
         if ($this->RowType == ROWTYPE_ADD || $this->RowType == ROWTYPE_EDIT || $this->RowType == ROWTYPE_SEARCH) { // Add/Edit/Search row
             $this->setupFieldTitles();
@@ -1016,18 +1099,21 @@ class UsersEdit extends Users
                 $this->name->addErrorMessage(str_replace("%s", $this->name->caption(), $this->name->RequiredErrorMessage));
             }
         }
+        if (!$this->name->Raw && Config("REMOVE_XSS") && CheckUsername($this->name->FormValue)) {
+            $this->name->addErrorMessage($Language->phrase("InvalidUsernameChars"));
+        }
         if ($this->_password->Required) {
             if (!$this->_password->IsDetailKey && EmptyValue($this->_password->FormValue)) {
                 $this->_password->addErrorMessage(str_replace("%s", $this->_password->caption(), $this->_password->RequiredErrorMessage));
             }
         }
+        if (!$this->_password->Raw && Config("REMOVE_XSS") && CheckPassword($this->_password->FormValue)) {
+            $this->_password->addErrorMessage($Language->phrase("InvalidPasswordChars"));
+        }
         if ($this->role->Required) {
             if (!$this->role->IsDetailKey && EmptyValue($this->role->FormValue)) {
                 $this->role->addErrorMessage(str_replace("%s", $this->role->caption(), $this->role->RequiredErrorMessage));
             }
-        }
-        if (!CheckInteger($this->role->FormValue)) {
-            $this->role->addErrorMessage($this->role->getErrorMessage(false));
         }
         if ($this->_email->Required) {
             if (!$this->_email->IsDetailKey && EmptyValue($this->_email->FormValue)) {
@@ -1037,6 +1123,16 @@ class UsersEdit extends Users
         if ($this->state->Required) {
             if (!$this->state->IsDetailKey && EmptyValue($this->state->FormValue)) {
                 $this->state->addErrorMessage(str_replace("%s", $this->state->caption(), $this->state->RequiredErrorMessage));
+            }
+        }
+        if ($this->first_name->Required) {
+            if (!$this->first_name->IsDetailKey && EmptyValue($this->first_name->FormValue)) {
+                $this->first_name->addErrorMessage(str_replace("%s", $this->first_name->caption(), $this->first_name->RequiredErrorMessage));
+            }
+        }
+        if ($this->last_name->Required) {
+            if (!$this->last_name->IsDetailKey && EmptyValue($this->last_name->FormValue)) {
+                $this->last_name->addErrorMessage(str_replace("%s", $this->last_name->caption(), $this->last_name->RequiredErrorMessage));
             }
         }
 
@@ -1074,7 +1170,9 @@ class UsersEdit extends Users
             $this->name->setDbValueDef($rsnew, $this->name->CurrentValue, "", $this->name->ReadOnly);
 
             // password
-            $this->_password->setDbValueDef($rsnew, $this->_password->CurrentValue, "", $this->_password->ReadOnly || Config("ENCRYPTED_PASSWORD") && $rsold['password'] == $this->_password->CurrentValue);
+            if (!IsMaskedPassword($this->_password->CurrentValue)) {
+                $this->_password->setDbValueDef($rsnew, $this->_password->CurrentValue, "", $this->_password->ReadOnly || Config("ENCRYPTED_PASSWORD") && $rsold['password'] == $this->_password->CurrentValue);
+            }
 
             // role
             $this->role->setDbValueDef($rsnew, $this->role->CurrentValue, 0, $this->role->ReadOnly);
@@ -1084,6 +1182,12 @@ class UsersEdit extends Users
 
             // state
             $this->state->setDbValueDef($rsnew, $this->state->CurrentValue, 0, $this->state->ReadOnly);
+
+            // first_name
+            $this->first_name->setDbValueDef($rsnew, $this->first_name->CurrentValue, "", $this->first_name->ReadOnly);
+
+            // last_name
+            $this->last_name->setDbValueDef($rsnew, $this->last_name->CurrentValue, "", $this->last_name->ReadOnly);
 
             // Call Row Updating event
             $updateRow = $this->rowUpdating($rsold, $rsnew);
@@ -1149,6 +1253,8 @@ class UsersEdit extends Users
 
             // Set up lookup SQL and connection
             switch ($fld->FieldVar) {
+                case "x_role":
+                    break;
                 case "x_state":
                     break;
                 default:

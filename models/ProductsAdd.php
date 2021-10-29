@@ -839,6 +839,9 @@ class ProductsAdd extends Products
             // code
             $this->code->setupEditAttributes();
             $this->code->EditCustomAttributes = "";
+            if (!$this->code->Raw) {
+                $this->code->CurrentValue = HtmlDecode($this->code->CurrentValue);
+            }
             $this->code->EditValue = HtmlEncode($this->code->CurrentValue);
             $this->code->PlaceHolder = RemoveHtml($this->code->caption());
 

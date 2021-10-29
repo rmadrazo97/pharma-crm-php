@@ -115,7 +115,7 @@ class Products extends DbTable
             false,
             false,
             'FORMATTED TEXT',
-            'TEXTAREA'
+            'TEXT'
         );
         $this->code->InputTextType = "text";
         $this->code->Nullable = false; // NOT NULL field
@@ -165,7 +165,7 @@ class Products extends DbTable
             'FORMATTED TEXT',
             'TEXT'
         );
-        $this->price->InputTextType = "text";
+        $this->price->InputTextType = "number";
         $this->price->Nullable = false; // NOT NULL field
         $this->price->Required = true; // Required field
         $this->price->DefaultErrorMessage = $Language->phrase("IncorrectFloat");
@@ -993,6 +993,9 @@ class Products extends DbTable
         // code
         $this->code->setupEditAttributes();
         $this->code->EditCustomAttributes = "";
+        if (!$this->code->Raw) {
+            $this->code->CurrentValue = HtmlDecode($this->code->CurrentValue);
+        }
         $this->code->EditValue = $this->code->CurrentValue;
         $this->code->PlaceHolder = RemoveHtml($this->code->caption());
 

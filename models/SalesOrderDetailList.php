@@ -640,6 +640,9 @@ class SalesOrderDetailList extends SalesOrderDetail
             $this->pageLoad();
         }
 
+        // Set up master detail parameters
+        $this->setupMasterParms();
+
         // Setup other options
         $this->setupOtherOptions();
 
@@ -649,6 +652,8 @@ class SalesOrderDetailList extends SalesOrderDetail
         }
 
         // Set up lookup cache
+        $this->setupLookupOptions($this->product_id);
+        $this->setupLookupOptions($this->unit_price);
 
         // Search filters
         $srchAdvanced = ""; // Advanced search filter
@@ -720,8 +725,28 @@ class SalesOrderDetailList extends SalesOrderDetail
         if (!$Security->canList()) {
             $filter = "(0=1)"; // Filter all records
         }
+
+        // Restore master/detail filter from session
+        $this->DbMasterFilter = $this->getMasterFilterFromSession(); // Restore master filter from session
+        $this->DbDetailFilter = $this->getDetailFilterFromSession(); // Restore detail filter from session
         AddFilter($filter, $this->DbDetailFilter);
         AddFilter($filter, $this->SearchWhere);
+
+        // Load master record
+        if ($this->CurrentMode != "add" && $this->DbMasterFilter != "" && $this->getCurrentMasterTable() == "sales_order") {
+            $masterTbl = Container("sales_order");
+            $rsmaster = $masterTbl->loadRs($this->DbMasterFilter)->fetchAssociative();
+            $this->MasterRecordExists = count($rsmaster) > 0;
+            if (!$this->MasterRecordExists) {
+                $this->setFailureMessage($Language->phrase("NoRecord")); // Set no record found
+                $this->terminate("SalesOrderList"); // Return to master page
+                return;
+            } else {
+                $masterTbl->loadListRowValues($rsmaster);
+                $masterTbl->RowType = ROWTYPE_MASTER; // Master row
+                $masterTbl->renderListRow();
+            }
+        }
 
         // Set up filter
         if ($this->Command == "json") {
@@ -919,6 +944,14 @@ class SalesOrderDetailList extends SalesOrderDetail
     {
         // Check if reset command
         if (StartsString("reset", $this->Command)) {
+            // Reset master/detail keys
+            if ($this->Command == "resetall") {
+                $this->setCurrentMasterTable(""); // Clear master table
+                $this->DbMasterFilter = "";
+                $this->DbDetailFilter = "";
+                        $this->sales_order_id->setSessionValue("");
+            }
+
             // Reset (clear) sorting order
             if ($this->Command == "resetsort") {
                 $orderBy = "";
@@ -1470,7 +1503,27 @@ class SalesOrderDetailList extends SalesOrderDetail
 
             // product_id
             $this->product_id->ViewValue = $this->product_id->CurrentValue;
-            $this->product_id->ViewValue = FormatNumber($this->product_id->ViewValue, $this->product_id->formatPattern());
+            $curVal = strval($this->product_id->CurrentValue);
+            if ($curVal != "") {
+                $this->product_id->ViewValue = $this->product_id->lookupCacheOption($curVal);
+                if ($this->product_id->ViewValue === null) { // Lookup from database
+                    $filterWrk = "`product_id`" . SearchString("=", $curVal, DATATYPE_NUMBER, "");
+                    $sqlWrk = $this->product_id->Lookup->getSql(false, $filterWrk, '', $this, true, true);
+                    $conn = Conn();
+                    $config = $conn->getConfiguration();
+                    $config->setResultCacheImpl($this->Cache);
+                    $rswrk = $conn->executeCacheQuery($sqlWrk, [], [], $this->CacheProfile)->fetchAll();
+                    $ari = count($rswrk);
+                    if ($ari > 0) { // Lookup values found
+                        $arwrk = $this->product_id->Lookup->renderViewRow($rswrk[0]);
+                        $this->product_id->ViewValue = $this->product_id->displayValue($arwrk);
+                    } else {
+                        $this->product_id->ViewValue = FormatNumber($this->product_id->CurrentValue, $this->product_id->formatPattern());
+                    }
+                }
+            } else {
+                $this->product_id->ViewValue = null;
+            }
             $this->product_id->ViewCustomAttributes = "";
 
             // sales_order_id
@@ -1485,7 +1538,27 @@ class SalesOrderDetailList extends SalesOrderDetail
 
             // unit_price
             $this->unit_price->ViewValue = $this->unit_price->CurrentValue;
-            $this->unit_price->ViewValue = FormatNumber($this->unit_price->ViewValue, $this->unit_price->formatPattern());
+            $curVal = strval($this->unit_price->CurrentValue);
+            if ($curVal != "") {
+                $this->unit_price->ViewValue = $this->unit_price->lookupCacheOption($curVal);
+                if ($this->unit_price->ViewValue === null) { // Lookup from database
+                    $filterWrk = "`price`" . SearchString("=", $curVal, DATATYPE_NUMBER, "");
+                    $sqlWrk = $this->unit_price->Lookup->getSql(false, $filterWrk, '', $this, true, true);
+                    $conn = Conn();
+                    $config = $conn->getConfiguration();
+                    $config->setResultCacheImpl($this->Cache);
+                    $rswrk = $conn->executeCacheQuery($sqlWrk, [], [], $this->CacheProfile)->fetchAll();
+                    $ari = count($rswrk);
+                    if ($ari > 0) { // Lookup values found
+                        $arwrk = $this->unit_price->Lookup->renderViewRow($rswrk[0]);
+                        $this->unit_price->ViewValue = $this->unit_price->displayValue($arwrk);
+                    } else {
+                        $this->unit_price->ViewValue = FormatNumber($this->unit_price->CurrentValue, $this->unit_price->formatPattern());
+                    }
+                }
+            } else {
+                $this->unit_price->ViewValue = null;
+            }
             $this->unit_price->ViewCustomAttributes = "";
 
             // sub_total
@@ -1736,6 +1809,23 @@ class SalesOrderDetailList extends SalesOrderDetail
 
         // Call Page Exporting server event
         $this->ExportDoc->ExportCustom = !$this->pageExporting();
+
+        // Export master record
+        if (Config("EXPORT_MASTER_RECORD") && $this->DbMasterFilter != "" && $this->getCurrentMasterTable() == "sales_order") {
+            $sales_order = Container("sales_order");
+            $rsmaster = $sales_order->loadRs($this->DbMasterFilter); // Load master record
+            if ($rsmaster) {
+                $exportStyle = $doc->Style;
+                $doc->setStyle("v"); // Change to vertical
+                if (!$this->isExport("csv") || Config("EXPORT_MASTER_RECORD_FOR_CSV")) {
+                    $doc->Table = $sales_order;
+                    $sales_order->exportDocument($doc, new Recordset($rsmaster));
+                    $doc->exportEmptyRow();
+                    $doc->Table = &$this;
+                }
+                $doc->setStyle($exportStyle); // Restore
+            }
+        }
         $header = $this->PageHeader;
         $this->pageDataRendering($header);
         $doc->Text .= $header;
@@ -1784,6 +1874,81 @@ class SalesOrderDetailList extends SalesOrderDetail
         }
     }
 
+    // Set up master/detail based on QueryString
+    protected function setupMasterParms()
+    {
+        $validMaster = false;
+        // Get the keys for master table
+        if (($master = Get(Config("TABLE_SHOW_MASTER"), Get(Config("TABLE_MASTER")))) !== null) {
+            $masterTblVar = $master;
+            if ($masterTblVar == "") {
+                $validMaster = true;
+                $this->DbMasterFilter = "";
+                $this->DbDetailFilter = "";
+            }
+            if ($masterTblVar == "sales_order") {
+                $validMaster = true;
+                $masterTbl = Container("sales_order");
+                if (($parm = Get("fk_order_id", Get("sales_order_id"))) !== null) {
+                    $masterTbl->order_id->setQueryStringValue($parm);
+                    $this->sales_order_id->setQueryStringValue($masterTbl->order_id->QueryStringValue);
+                    $this->sales_order_id->setSessionValue($this->sales_order_id->QueryStringValue);
+                    if (!is_numeric($masterTbl->order_id->QueryStringValue)) {
+                        $validMaster = false;
+                    }
+                } else {
+                    $validMaster = false;
+                }
+            }
+        } elseif (($master = Post(Config("TABLE_SHOW_MASTER"), Post(Config("TABLE_MASTER")))) !== null) {
+            $masterTblVar = $master;
+            if ($masterTblVar == "") {
+                    $validMaster = true;
+                    $this->DbMasterFilter = "";
+                    $this->DbDetailFilter = "";
+            }
+            if ($masterTblVar == "sales_order") {
+                $validMaster = true;
+                $masterTbl = Container("sales_order");
+                if (($parm = Post("fk_order_id", Post("sales_order_id"))) !== null) {
+                    $masterTbl->order_id->setFormValue($parm);
+                    $this->sales_order_id->setFormValue($masterTbl->order_id->FormValue);
+                    $this->sales_order_id->setSessionValue($this->sales_order_id->FormValue);
+                    if (!is_numeric($masterTbl->order_id->FormValue)) {
+                        $validMaster = false;
+                    }
+                } else {
+                    $validMaster = false;
+                }
+            }
+        }
+        if ($validMaster) {
+            // Save current master table
+            $this->setCurrentMasterTable($masterTblVar);
+
+            // Update URL
+            $this->AddUrl = $this->addMasterUrl($this->AddUrl);
+            $this->InlineAddUrl = $this->addMasterUrl($this->InlineAddUrl);
+            $this->GridAddUrl = $this->addMasterUrl($this->GridAddUrl);
+            $this->GridEditUrl = $this->addMasterUrl($this->GridEditUrl);
+
+            // Reset start record counter (new master key)
+            if (!$this->isAddOrEdit()) {
+                $this->StartRecord = 1;
+                $this->setStartRecordNumber($this->StartRecord);
+            }
+
+            // Clear previous master key from Session
+            if ($masterTblVar != "sales_order") {
+                if ($this->sales_order_id->CurrentValue == "") {
+                    $this->sales_order_id->setSessionValue("");
+                }
+            }
+        }
+        $this->DbMasterFilter = $this->getMasterFilterFromSession(); // Get master filter from session
+        $this->DbDetailFilter = $this->getDetailFilterFromSession(); // Get detail filter from session
+    }
+
     // Set up Breadcrumb
     protected function setupBreadcrumb()
     {
@@ -1807,6 +1972,10 @@ class SalesOrderDetailList extends SalesOrderDetail
 
             // Set up lookup SQL and connection
             switch ($fld->FieldVar) {
+                case "x_product_id":
+                    break;
+                case "x_unit_price":
+                    break;
                 default:
                     $lookupFilter = "";
                     break;

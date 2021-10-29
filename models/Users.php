@@ -37,6 +37,8 @@ class Users extends DbTable
     public $role;
     public $_email;
     public $state;
+    public $first_name;
+    public $last_name;
 
     // Page ID
     public $PageID = ""; // To be overridden by subclass
@@ -117,7 +119,7 @@ class Users extends DbTable
             false,
             false,
             'FORMATTED TEXT',
-            'TEXTAREA'
+            'TEXT'
         );
         $this->name->InputTextType = "text";
         $this->name->Nullable = false; // NOT NULL field
@@ -141,7 +143,7 @@ class Users extends DbTable
             false,
             false,
             'FORMATTED TEXT',
-            'TEXTAREA'
+            'PASSWORD'
         );
         $this->_password->InputTextType = "text";
         if (Config("ENCRYPTED_PASSWORD")) {
@@ -168,11 +170,22 @@ class Users extends DbTable
             false,
             false,
             'FORMATTED TEXT',
-            'TEXT'
+            'SELECT'
         );
         $this->role->InputTextType = "text";
         $this->role->Nullable = false; // NOT NULL field
         $this->role->Required = true; // Required field
+        $this->role->UsePleaseSelect = true; // Use PleaseSelect by default
+        $this->role->PleaseSelectText = $Language->phrase("PleaseSelect"); // "PleaseSelect" text
+        switch ($CurrentLanguage) {
+            case "en-US":
+                $this->role->Lookup = new Lookup('role', 'users', false, '', ["","","",""], [], [], [], [], [], [], '', '', "");
+                break;
+            default:
+                $this->role->Lookup = new Lookup('role', 'users', false, '', ["","","",""], [], [], [], [], [], [], '', '', "");
+                break;
+        }
+        $this->role->OptionCount = 5;
         $this->role->DefaultErrorMessage = $Language->phrase("IncorrectInteger");
         $this->Fields['role'] = &$this->role;
 
@@ -193,9 +206,9 @@ class Users extends DbTable
             false,
             false,
             'FORMATTED TEXT',
-            'TEXTAREA'
+            'TEXT'
         );
-        $this->_email->InputTextType = "text";
+        $this->_email->InputTextType = "email";
         $this->_email->Nullable = false; // NOT NULL field
         $this->_email->Required = true; // Required field
         $this->Fields['email'] = &$this->_email;
@@ -235,6 +248,54 @@ class Users extends DbTable
         $this->state->OptionCount = 2;
         $this->state->DefaultErrorMessage = $Language->phrase("IncorrectInteger");
         $this->Fields['state'] = &$this->state;
+
+        // first_name
+        $this->first_name = new DbField(
+            'users',
+            'users',
+            'x_first_name',
+            'first_name',
+            '`first_name`',
+            '`first_name`',
+            201,
+            65535,
+            -1,
+            false,
+            '`first_name`',
+            false,
+            false,
+            false,
+            'FORMATTED TEXT',
+            'TEXT'
+        );
+        $this->first_name->InputTextType = "text";
+        $this->first_name->Nullable = false; // NOT NULL field
+        $this->first_name->Required = true; // Required field
+        $this->Fields['first_name'] = &$this->first_name;
+
+        // last_name
+        $this->last_name = new DbField(
+            'users',
+            'users',
+            'x_last_name',
+            'last_name',
+            '`last_name`',
+            '`last_name`',
+            201,
+            65535,
+            -1,
+            false,
+            '`last_name`',
+            false,
+            false,
+            false,
+            'FORMATTED TEXT',
+            'TEXT'
+        );
+        $this->last_name->InputTextType = "text";
+        $this->last_name->Nullable = false; // NOT NULL field
+        $this->last_name->Required = true; // Required field
+        $this->Fields['last_name'] = &$this->last_name;
 
         // Add Doctrine Cache
         $this->Cache = new ArrayCache();
@@ -666,6 +727,8 @@ class Users extends DbTable
         $this->role->DbValue = $row['role'];
         $this->_email->DbValue = $row['email'];
         $this->state->DbValue = $row['state'];
+        $this->first_name->DbValue = $row['first_name'];
+        $this->last_name->DbValue = $row['last_name'];
     }
 
     // Delete uploaded files
@@ -990,6 +1053,8 @@ class Users extends DbTable
         $this->role->setDbValue($row['role']);
         $this->_email->setDbValue($row['email']);
         $this->state->setDbValue($row['state']);
+        $this->first_name->setDbValue($row['first_name']);
+        $this->last_name->setDbValue($row['last_name']);
     }
 
     // Render list row values
@@ -1014,6 +1079,10 @@ class Users extends DbTable
 
         // state
 
+        // first_name
+
+        // last_name
+
         // user_id
         $this->user_id->ViewValue = $this->user_id->CurrentValue;
         $this->user_id->ViewCustomAttributes = "";
@@ -1023,12 +1092,15 @@ class Users extends DbTable
         $this->name->ViewCustomAttributes = "";
 
         // password
-        $this->_password->ViewValue = $this->_password->CurrentValue;
+        $this->_password->ViewValue = $Language->phrase("PasswordMask");
         $this->_password->ViewCustomAttributes = "";
 
         // role
-        $this->role->ViewValue = $this->role->CurrentValue;
-        $this->role->ViewValue = FormatNumber($this->role->ViewValue, $this->role->formatPattern());
+        if (strval($this->role->CurrentValue) != "") {
+            $this->role->ViewValue = $this->role->optionCaption($this->role->CurrentValue);
+        } else {
+            $this->role->ViewValue = null;
+        }
         $this->role->ViewCustomAttributes = "";
 
         // email
@@ -1042,6 +1114,14 @@ class Users extends DbTable
             $this->state->ViewValue = null;
         }
         $this->state->ViewCustomAttributes = "";
+
+        // first_name
+        $this->first_name->ViewValue = $this->first_name->CurrentValue;
+        $this->first_name->ViewCustomAttributes = "";
+
+        // last_name
+        $this->last_name->ViewValue = $this->last_name->CurrentValue;
+        $this->last_name->ViewCustomAttributes = "";
 
         // user_id
         $this->user_id->LinkCustomAttributes = "";
@@ -1073,6 +1153,16 @@ class Users extends DbTable
         $this->state->HrefValue = "";
         $this->state->TooltipValue = "";
 
+        // first_name
+        $this->first_name->LinkCustomAttributes = "";
+        $this->first_name->HrefValue = "";
+        $this->first_name->TooltipValue = "";
+
+        // last_name
+        $this->last_name->LinkCustomAttributes = "";
+        $this->last_name->HrefValue = "";
+        $this->last_name->TooltipValue = "";
+
         // Call Row Rendered event
         $this->rowRendered();
 
@@ -1097,27 +1187,30 @@ class Users extends DbTable
         // name
         $this->name->setupEditAttributes();
         $this->name->EditCustomAttributes = "";
+        if (!$this->name->Raw) {
+            $this->name->CurrentValue = HtmlDecode($this->name->CurrentValue);
+        }
         $this->name->EditValue = $this->name->CurrentValue;
         $this->name->PlaceHolder = RemoveHtml($this->name->caption());
 
         // password
-        $this->_password->setupEditAttributes();
+        $this->_password->setupEditAttributes(["class" => "ew-password-strength"]);
         $this->_password->EditCustomAttributes = "";
-        $this->_password->EditValue = $this->_password->CurrentValue;
+        $this->_password->EditValue = $Language->phrase("PasswordMask"); // Show as masked password
         $this->_password->PlaceHolder = RemoveHtml($this->_password->caption());
 
         // role
         $this->role->setupEditAttributes();
         $this->role->EditCustomAttributes = "";
-        $this->role->EditValue = $this->role->CurrentValue;
+        $this->role->EditValue = $this->role->options(true);
         $this->role->PlaceHolder = RemoveHtml($this->role->caption());
-        if (strval($this->role->EditValue) != "" && is_numeric($this->role->EditValue)) {
-            $this->role->EditValue = FormatNumber($this->role->EditValue, null);
-        }
 
         // email
         $this->_email->setupEditAttributes();
         $this->_email->EditCustomAttributes = "";
+        if (!$this->_email->Raw) {
+            $this->_email->CurrentValue = HtmlDecode($this->_email->CurrentValue);
+        }
         $this->_email->EditValue = $this->_email->CurrentValue;
         $this->_email->PlaceHolder = RemoveHtml($this->_email->caption());
 
@@ -1126,6 +1219,24 @@ class Users extends DbTable
         $this->state->EditCustomAttributes = "";
         $this->state->EditValue = $this->state->options(true);
         $this->state->PlaceHolder = RemoveHtml($this->state->caption());
+
+        // first_name
+        $this->first_name->setupEditAttributes();
+        $this->first_name->EditCustomAttributes = "";
+        if (!$this->first_name->Raw) {
+            $this->first_name->CurrentValue = HtmlDecode($this->first_name->CurrentValue);
+        }
+        $this->first_name->EditValue = $this->first_name->CurrentValue;
+        $this->first_name->PlaceHolder = RemoveHtml($this->first_name->caption());
+
+        // last_name
+        $this->last_name->setupEditAttributes();
+        $this->last_name->EditCustomAttributes = "";
+        if (!$this->last_name->Raw) {
+            $this->last_name->CurrentValue = HtmlDecode($this->last_name->CurrentValue);
+        }
+        $this->last_name->EditValue = $this->last_name->CurrentValue;
+        $this->last_name->PlaceHolder = RemoveHtml($this->last_name->caption());
 
         // Call Row Rendered event
         $this->rowRendered();
@@ -1161,6 +1272,8 @@ class Users extends DbTable
                     $doc->exportCaption($this->role);
                     $doc->exportCaption($this->_email);
                     $doc->exportCaption($this->state);
+                    $doc->exportCaption($this->first_name);
+                    $doc->exportCaption($this->last_name);
                 } else {
                     $doc->exportCaption($this->user_id);
                     $doc->exportCaption($this->role);
@@ -1200,6 +1313,8 @@ class Users extends DbTable
                         $doc->exportField($this->role);
                         $doc->exportField($this->_email);
                         $doc->exportField($this->state);
+                        $doc->exportField($this->first_name);
+                        $doc->exportField($this->last_name);
                     } else {
                         $doc->exportField($this->user_id);
                         $doc->exportField($this->role);

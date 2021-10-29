@@ -137,5 +137,4 @@ echo GetDebugMessage();
 loadjs.ready("load", function () {
     // Write your startup script here, no need to add script tags.
 });
-$('.brand-text').text('DAP');
 </script>

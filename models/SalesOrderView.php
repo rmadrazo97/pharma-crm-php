@@ -575,6 +575,7 @@ class SalesOrderView extends SalesOrder
         }
 
         // Set up lookup cache
+        $this->setupLookupOptions($this->customer_id);
 
         // Check modal
         if ($this->IsModal) {
@@ -647,6 +648,9 @@ class SalesOrderView extends SalesOrder
         $this->RowType = ROWTYPE_VIEW;
         $this->resetAttributes();
         $this->renderRow();
+
+        // Set up detail parameters
+        $this->setupDetailParms();
 
         // Normal return
         if (IsApi()) {
@@ -725,6 +729,89 @@ class SalesOrderView extends SalesOrder
             $item->Body = "<a class=\"ew-action ew-delete\" title=\"" . HtmlTitle($Language->phrase("ViewPageDeleteLink")) . "\" data-caption=\"" . HtmlTitle($Language->phrase("ViewPageDeleteLink")) . "\" href=\"" . HtmlEncode(GetUrl($this->DeleteUrl)) . "\">" . $Language->phrase("ViewPageDeleteLink") . "</a>";
         }
         $item->Visible = ($this->DeleteUrl != "" && $Security->canDelete());
+        $option = $options["detail"];
+        $detailTableLink = "";
+        $detailViewTblVar = "";
+        $detailCopyTblVar = "";
+        $detailEditTblVar = "";
+
+        // "detail_sales_order_detail"
+        $item = &$option->add("detail_sales_order_detail");
+        $body = $Language->phrase("ViewPageDetailLink") . $Language->TablePhrase("sales_order_detail", "TblCaption");
+        $body = "<a class=\"btn btn-default ew-row-link ew-detail\" data-action=\"list\" href=\"" . HtmlEncode(GetUrl("SalesOrderDetailList?" . Config("TABLE_SHOW_MASTER") . "=sales_order&" . GetForeignKeyUrl("fk_order_id", $this->order_id->CurrentValue) . "")) . "\">" . $body . "</a>";
+        $links = "";
+        $detailPageObj = Container("SalesOrderDetailGrid");
+        if ($detailPageObj->DetailView && $Security->canView() && $Security->allowView(CurrentProjectID() . 'sales_order')) {
+            $links .= "<li><a class=\"dropdown-item ew-row-link ew-detail-view\" data-action=\"view\" data-caption=\"" . HtmlTitle($Language->phrase("MasterDetailViewLink")) . "\" href=\"" . HtmlEncode(GetUrl($this->getViewUrl(Config("TABLE_SHOW_DETAIL") . "=sales_order_detail"))) . "\">" . $Language->phrase("MasterDetailViewLink", null) . "</a></li>";
+            if ($detailViewTblVar != "") {
+                $detailViewTblVar .= ",";
+            }
+            $detailViewTblVar .= "sales_order_detail";
+        }
+        if ($detailPageObj->DetailEdit && $Security->canEdit() && $Security->allowEdit(CurrentProjectID() . 'sales_order')) {
+            $links .= "<li><a class=\"dropdown-item ew-row-link ew-detail-edit\" data-action=\"edit\" data-caption=\"" . HtmlTitle($Language->phrase("MasterDetailEditLink")) . "\" href=\"" . HtmlEncode(GetUrl($this->getEditUrl(Config("TABLE_SHOW_DETAIL") . "=sales_order_detail"))) . "\">" . $Language->phrase("MasterDetailEditLink", null) . "</a></li>";
+            if ($detailEditTblVar != "") {
+                $detailEditTblVar .= ",";
+            }
+            $detailEditTblVar .= "sales_order_detail";
+        }
+        if ($detailPageObj->DetailAdd && $Security->canAdd() && $Security->allowAdd(CurrentProjectID() . 'sales_order')) {
+            $links .= "<li><a class=\"dropdown-item ew-row-link ew-detail-copy\" data-action=\"add\" data-caption=\"" . HtmlTitle($Language->phrase("MasterDetailCopyLink")) . "\" href=\"" . HtmlEncode(GetUrl($this->getCopyUrl(Config("TABLE_SHOW_DETAIL") . "=sales_order_detail"))) . "\">" . $Language->phrase("MasterDetailCopyLink", null) . "</a></li>";
+            if ($detailCopyTblVar != "") {
+                $detailCopyTblVar .= ",";
+            }
+            $detailCopyTblVar .= "sales_order_detail";
+        }
+        if ($links != "") {
+            $body .= "<button class=\"dropdown-toggle btn btn-default ew-detail\" data-bs-toggle=\"dropdown\"></button>";
+            $body .= "<ul class=\"dropdown-menu\">" . $links . "</ul>";
+        }
+        $body = "<div class=\"btn-group btn-group-sm ew-btn-group\">" . $body . "</div>";
+        $item->Body = $body;
+        $item->Visible = $Security->allowList(CurrentProjectID() . 'sales_order_detail');
+        if ($item->Visible) {
+            if ($detailTableLink != "") {
+                $detailTableLink .= ",";
+            }
+            $detailTableLink .= "sales_order_detail";
+        }
+        if ($this->ShowMultipleDetails) {
+            $item->Visible = false;
+        }
+
+        // Multiple details
+        if ($this->ShowMultipleDetails) {
+            $body = "<div class=\"btn-group btn-group-sm ew-btn-group\">";
+            $links = "";
+            if ($detailViewTblVar != "") {
+                $links .= "<li><a class=\"dropdown-item ew-row-link ew-detail-view\" data-action=\"view\" data-caption=\"" . HtmlEncode($Language->phrase("MasterDetailViewLink", true)) . "\" href=\"" . HtmlEncode(GetUrl($this->getViewUrl(Config("TABLE_SHOW_DETAIL") . "=" . $detailViewTblVar))) . "\">" . $Language->phrase("MasterDetailViewLink", null) . "</a></li>";
+            }
+            if ($detailEditTblVar != "") {
+                $links .= "<li><a class=\"dropdown-item ew-row-link ew-detail-edit\" data-action=\"edit\" data-caption=\"" . HtmlEncode($Language->phrase("MasterDetailEditLink", true)) . "\" href=\"" . HtmlEncode(GetUrl($this->getEditUrl(Config("TABLE_SHOW_DETAIL") . "=" . $detailEditTblVar))) . "\">" . $Language->phrase("MasterDetailEditLink", null) . "</a></li>";
+            }
+            if ($detailCopyTblVar != "") {
+                $links .= "<li><a class=\"dropdown-item ew-row-link ew-detail-copy\" data-action=\"add\" data-caption=\"" . HtmlEncode($Language->phrase("MasterDetailCopyLink", true)) . "\" href=\"" . HtmlEncode(GetUrl($this->getCopyUrl(Config("TABLE_SHOW_DETAIL") . "=" . $detailCopyTblVar))) . "\">" . $Language->phrase("MasterDetailCopyLink", null) . "</a></li>";
+            }
+            if ($links != "") {
+                $body .= "<button class=\"dropdown-toggle btn btn-default ew-master-detail\" title=\"" . HtmlEncode($Language->phrase("MultipleMasterDetails", true)) . "\" data-bs-toggle=\"dropdown\">" . $Language->phrase("MultipleMasterDetails") . "</button>";
+                $body .= "<ul class=\"dropdown-menu ew-menu\">" . $links . "</ul>";
+            }
+            $body .= "</div>";
+            // Multiple details
+            $item = &$option->add("details");
+            $item->Body = $body;
+        }
+
+        // Set up detail default
+        $option = $options["detail"];
+        $options["detail"]->DropDownButtonPhrase = $Language->phrase("ButtonDetails");
+        $ar = explode(",", $detailTableLink);
+        $cnt = count($ar);
+        $option->UseDropDownButton = ($cnt > 1);
+        $option->UseButtonGroup = true;
+        $item = &$option->addGroupOption();
+        $item->Body = "";
+        $item->Visible = false;
 
         // Set up action default
         $option = $options["action"];
@@ -872,7 +959,27 @@ class SalesOrderView extends SalesOrder
 
             // customer_id
             $this->customer_id->ViewValue = $this->customer_id->CurrentValue;
-            $this->customer_id->ViewValue = FormatNumber($this->customer_id->ViewValue, $this->customer_id->formatPattern());
+            $curVal = strval($this->customer_id->CurrentValue);
+            if ($curVal != "") {
+                $this->customer_id->ViewValue = $this->customer_id->lookupCacheOption($curVal);
+                if ($this->customer_id->ViewValue === null) { // Lookup from database
+                    $filterWrk = "`customer_id`" . SearchString("=", $curVal, DATATYPE_NUMBER, "");
+                    $sqlWrk = $this->customer_id->Lookup->getSql(false, $filterWrk, '', $this, true, true);
+                    $conn = Conn();
+                    $config = $conn->getConfiguration();
+                    $config->setResultCacheImpl($this->Cache);
+                    $rswrk = $conn->executeCacheQuery($sqlWrk, [], [], $this->CacheProfile)->fetchAll();
+                    $ari = count($rswrk);
+                    if ($ari > 0) { // Lookup values found
+                        $arwrk = $this->customer_id->Lookup->renderViewRow($rswrk[0]);
+                        $this->customer_id->ViewValue = $this->customer_id->displayValue($arwrk);
+                    } else {
+                        $this->customer_id->ViewValue = FormatNumber($this->customer_id->CurrentValue, $this->customer_id->formatPattern());
+                    }
+                }
+            } else {
+                $this->customer_id->ViewValue = null;
+            }
             $this->customer_id->ViewCustomAttributes = "";
 
             // date
@@ -1062,6 +1169,25 @@ class SalesOrderView extends SalesOrder
         $this->pageDataRendering($header);
         $doc->Text .= $header;
         $this->exportDocument($doc, $rs, $this->StartRecord, $this->StopRecord, "view");
+
+        // Export detail records (sales_order_detail)
+        if (Config("EXPORT_DETAIL_RECORDS") && in_array("sales_order_detail", explode(",", $this->getCurrentDetailTable()))) {
+            $sales_order_detail = Container("sales_order_detail");
+            $rsdetail = $sales_order_detail->loadRs($sales_order_detail->getDetailFilterFromSession()); // Load detail records
+            if ($rsdetail) {
+                $exportStyle = $doc->Style;
+                $doc->setStyle("h"); // Change to horizontal
+                if (!$this->isExport("csv") || Config("EXPORT_DETAIL_RECORDS_FOR_CSV")) {
+                    $doc->exportEmptyRow();
+                    $detailcnt = $rsdetail->rowCount();
+                    $oldtbl = $doc->Table;
+                    $doc->Table = $sales_order_detail;
+                    $sales_order_detail->exportDocument($doc, new Recordset($rsdetail), 1, $detailcnt);
+                    $doc->Table = $oldtbl;
+                }
+                $doc->setStyle($exportStyle); // Restore
+            }
+        }
         $footer = $this->PageFooter;
         $this->pageDataRendered($footer);
         $doc->Text .= $footer;
@@ -1106,6 +1232,34 @@ class SalesOrderView extends SalesOrder
         }
     }
 
+    // Set up detail parms based on QueryString
+    protected function setupDetailParms()
+    {
+        // Get the keys for master table
+        $detailTblVar = Get(Config("TABLE_SHOW_DETAIL"));
+        if ($detailTblVar !== null) {
+            $this->setCurrentDetailTable($detailTblVar);
+        } else {
+            $detailTblVar = $this->getCurrentDetailTable();
+        }
+        if ($detailTblVar != "") {
+            $detailTblVar = explode(",", $detailTblVar);
+            if (in_array("sales_order_detail", $detailTblVar)) {
+                $detailPageObj = Container("SalesOrderDetailGrid");
+                if ($detailPageObj->DetailView) {
+                    $detailPageObj->CurrentMode = "view";
+
+                    // Save current master table to detail table
+                    $detailPageObj->setCurrentMasterTable($this->TableVar);
+                    $detailPageObj->setStartRecordNumber(1);
+                    $detailPageObj->sales_order_id->IsDetailKey = true;
+                    $detailPageObj->sales_order_id->CurrentValue = $this->order_id->CurrentValue;
+                    $detailPageObj->sales_order_id->setSessionValue($detailPageObj->sales_order_id->CurrentValue);
+                }
+            }
+        }
+    }
+
     // Set up Breadcrumb
     protected function setupBreadcrumb()
     {
@@ -1130,6 +1284,8 @@ class SalesOrderView extends SalesOrder
 
             // Set up lookup SQL and connection
             switch ($fld->FieldVar) {
+                case "x_customer_id":
+                    break;
                 default:
                     $lookupFilter = "";
                     break;

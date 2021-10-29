@@ -110,6 +110,28 @@ $Page->showMessage();
 </td>
     </tr>
 <?php } ?>
+<?php if ($Page->first_name->Visible) { // first_name ?>
+    <tr id="r_first_name"<?= $Page->first_name->rowAttributes() ?>>
+        <td class="<?= $Page->TableLeftColumnClass ?>"><span id="elh_users_first_name"><?= $Page->first_name->caption() ?></span></td>
+        <td data-name="first_name"<?= $Page->first_name->cellAttributes() ?>>
+<span id="el_users_first_name">
+<span<?= $Page->first_name->viewAttributes() ?>>
+<?= $Page->first_name->getViewValue() ?></span>
+</span>
+</td>
+    </tr>
+<?php } ?>
+<?php if ($Page->last_name->Visible) { // last_name ?>
+    <tr id="r_last_name"<?= $Page->last_name->rowAttributes() ?>>
+        <td class="<?= $Page->TableLeftColumnClass ?>"><span id="elh_users_last_name"><?= $Page->last_name->caption() ?></span></td>
+        <td data-name="last_name"<?= $Page->last_name->cellAttributes() ?>>
+<span id="el_users_last_name">
+<span<?= $Page->last_name->viewAttributes() ?>>
+<?= $Page->last_name->getViewValue() ?></span>
+</span>
+</td>
+    </tr>
+<?php } ?>
 </table>
 </form>
 <?php
