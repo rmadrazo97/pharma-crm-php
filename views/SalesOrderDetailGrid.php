@@ -21,7 +21,7 @@ loadjs.ready(["wrapper", "head"], function () {
     var fields = currentTable.fields;
     fsales_order_detailgrid.addFields([
         ["order_detail_id", [fields.order_detail_id.visible && fields.order_detail_id.required ? ew.Validators.required(fields.order_detail_id.caption) : null], fields.order_detail_id.isInvalid],
-        ["product_id", [fields.product_id.visible && fields.product_id.required ? ew.Validators.required(fields.product_id.caption) : null, ew.Validators.integer], fields.product_id.isInvalid],
+        ["product_id", [fields.product_id.visible && fields.product_id.required ? ew.Validators.required(fields.product_id.caption) : null], fields.product_id.isInvalid],
         ["sales_order_id", [fields.sales_order_id.visible && fields.sales_order_id.required ? ew.Validators.required(fields.sales_order_id.caption) : null, ew.Validators.integer], fields.sales_order_id.isInvalid],
         ["quantity", [fields.quantity.visible && fields.quantity.required ? ew.Validators.required(fields.quantity.caption) : null, ew.Validators.integer], fields.quantity.isInvalid],
         ["unit_price", [fields.unit_price.visible && fields.unit_price.required ? ew.Validators.required(fields.unit_price.caption) : null, ew.Validators.float], fields.unit_price.isInvalid],
@@ -251,49 +251,69 @@ $Grid->ListOptions->render("body", "left", $Grid->RowCount);
         <td data-name="product_id"<?= $Grid->product_id->cellAttributes() ?>>
 <?php if ($Grid->RowType == ROWTYPE_ADD) { // Add record ?>
 <span id="el<?= $Grid->RowCount ?>_sales_order_detail_product_id" class="el_sales_order_detail_product_id">
-<?php
-$onchange = $Grid->product_id->EditAttrs->prepend("onchange", "");
-$onchange = ($onchange) ? ' onchange="' . JsEncode($onchange) . '"' : '';
-$Grid->product_id->EditAttrs["onchange"] = "";
-if (IsRTL()) {
-    $Grid->product_id->EditAttrs["dir"] = "rtl";
-}
-?>
-<span id="as_x<?= $Grid->RowIndex ?>_product_id" class="ew-auto-suggest">
-    <input type="<?= $Grid->product_id->getInputTextType() ?>" class="form-control" name="sv_x<?= $Grid->RowIndex ?>_product_id" id="sv_x<?= $Grid->RowIndex ?>_product_id" value="<?= RemoveHtml($Grid->product_id->EditValue) ?>" size="30" placeholder="<?= HtmlEncode($Grid->product_id->getPlaceHolder()) ?>" data-placeholder="<?= HtmlEncode($Grid->product_id->getPlaceHolder()) ?>"<?= $Grid->product_id->editAttributes() ?>>
-</span>
-<selection-list hidden class="form-control" data-table="sales_order_detail" data-field="x_product_id" data-input="sv_x<?= $Grid->RowIndex ?>_product_id" data-value-separator="<?= $Grid->product_id->displayValueSeparatorAttribute() ?>" name="x<?= $Grid->RowIndex ?>_product_id" id="x<?= $Grid->RowIndex ?>_product_id" value="<?= HtmlEncode($Grid->product_id->CurrentValue) ?>"<?= $onchange ?>></selection-list>
-<div class="invalid-feedback"><?= $Grid->product_id->getErrorMessage() ?></div>
+    <select
+        id="x<?= $Grid->RowIndex ?>_product_id"
+        name="x<?= $Grid->RowIndex ?>_product_id"
+        class="form-select ew-select<?= $Grid->product_id->isInvalidClass() ?>"
+        data-select2-id="fsales_order_detailgrid_x<?= $Grid->RowIndex ?>_product_id"
+        data-table="sales_order_detail"
+        data-field="x_product_id"
+        data-value-separator="<?= $Grid->product_id->displayValueSeparatorAttribute() ?>"
+        data-placeholder="<?= HtmlEncode($Grid->product_id->getPlaceHolder()) ?>"
+        <?= $Grid->product_id->editAttributes() ?>>
+        <?= $Grid->product_id->selectOptionListHtml("x{$Grid->RowIndex}_product_id") ?>
+    </select>
+    <div class="invalid-feedback"><?= $Grid->product_id->getErrorMessage() ?></div>
+<?= $Grid->product_id->Lookup->getParamTag($Grid, "p_x" . $Grid->RowIndex . "_product_id") ?>
 <script>
 loadjs.ready("fsales_order_detailgrid", function() {
-    fsales_order_detailgrid.createAutoSuggest(Object.assign({"id":"x<?= $Grid->RowIndex ?>_product_id","forceSelect":false}, ew.vars.tables.sales_order_detail.fields.product_id.autoSuggestOptions));
+    var options = { name: "x<?= $Grid->RowIndex ?>_product_id", selectId: "fsales_order_detailgrid_x<?= $Grid->RowIndex ?>_product_id" },
+        el = document.querySelector("select[data-select2-id='" + options.selectId + "']");
+    options.dropdownParent = el.closest("#ew-modal-dialog, #ew-add-opt-dialog");
+    if (fsales_order_detailgrid.lists.product_id.lookupOptions.length) {
+        options.data = { id: "x<?= $Grid->RowIndex ?>_product_id", form: "fsales_order_detailgrid" };
+    } else {
+        options.ajax = { id: "x<?= $Grid->RowIndex ?>_product_id", form: "fsales_order_detailgrid", limit: ew.LOOKUP_PAGE_SIZE };
+    }
+    options.minimumResultsForSearch = Infinity;
+    options = Object.assign({}, ew.selectOptions, options, ew.vars.tables.sales_order_detail.fields.product_id.selectOptions);
+    ew.createSelect(options);
 });
 </script>
-<?= $Grid->product_id->Lookup->getParamTag($Grid, "p_x" . $Grid->RowIndex . "_product_id") ?>
 </span>
 <input type="hidden" data-table="sales_order_detail" data-field="x_product_id" data-hidden="1" name="o<?= $Grid->RowIndex ?>_product_id" id="o<?= $Grid->RowIndex ?>_product_id" value="<?= HtmlEncode($Grid->product_id->OldValue) ?>">
 <?php } ?>
 <?php if ($Grid->RowType == ROWTYPE_EDIT) { // Edit record ?>
 <span id="el<?= $Grid->RowCount ?>_sales_order_detail_product_id" class="el_sales_order_detail_product_id">
-<?php
-$onchange = $Grid->product_id->EditAttrs->prepend("onchange", "");
-$onchange = ($onchange) ? ' onchange="' . JsEncode($onchange) . '"' : '';
-$Grid->product_id->EditAttrs["onchange"] = "";
-if (IsRTL()) {
-    $Grid->product_id->EditAttrs["dir"] = "rtl";
-}
-?>
-<span id="as_x<?= $Grid->RowIndex ?>_product_id" class="ew-auto-suggest">
-    <input type="<?= $Grid->product_id->getInputTextType() ?>" class="form-control" name="sv_x<?= $Grid->RowIndex ?>_product_id" id="sv_x<?= $Grid->RowIndex ?>_product_id" value="<?= RemoveHtml($Grid->product_id->EditValue) ?>" size="30" placeholder="<?= HtmlEncode($Grid->product_id->getPlaceHolder()) ?>" data-placeholder="<?= HtmlEncode($Grid->product_id->getPlaceHolder()) ?>"<?= $Grid->product_id->editAttributes() ?>>
-</span>
-<selection-list hidden class="form-control" data-table="sales_order_detail" data-field="x_product_id" data-input="sv_x<?= $Grid->RowIndex ?>_product_id" data-value-separator="<?= $Grid->product_id->displayValueSeparatorAttribute() ?>" name="x<?= $Grid->RowIndex ?>_product_id" id="x<?= $Grid->RowIndex ?>_product_id" value="<?= HtmlEncode($Grid->product_id->CurrentValue) ?>"<?= $onchange ?>></selection-list>
-<div class="invalid-feedback"><?= $Grid->product_id->getErrorMessage() ?></div>
+    <select
+        id="x<?= $Grid->RowIndex ?>_product_id"
+        name="x<?= $Grid->RowIndex ?>_product_id"
+        class="form-select ew-select<?= $Grid->product_id->isInvalidClass() ?>"
+        data-select2-id="fsales_order_detailgrid_x<?= $Grid->RowIndex ?>_product_id"
+        data-table="sales_order_detail"
+        data-field="x_product_id"
+        data-value-separator="<?= $Grid->product_id->displayValueSeparatorAttribute() ?>"
+        data-placeholder="<?= HtmlEncode($Grid->product_id->getPlaceHolder()) ?>"
+        <?= $Grid->product_id->editAttributes() ?>>
+        <?= $Grid->product_id->selectOptionListHtml("x{$Grid->RowIndex}_product_id") ?>
+    </select>
+    <div class="invalid-feedback"><?= $Grid->product_id->getErrorMessage() ?></div>
+<?= $Grid->product_id->Lookup->getParamTag($Grid, "p_x" . $Grid->RowIndex . "_product_id") ?>
 <script>
 loadjs.ready("fsales_order_detailgrid", function() {
-    fsales_order_detailgrid.createAutoSuggest(Object.assign({"id":"x<?= $Grid->RowIndex ?>_product_id","forceSelect":false}, ew.vars.tables.sales_order_detail.fields.product_id.autoSuggestOptions));
+    var options = { name: "x<?= $Grid->RowIndex ?>_product_id", selectId: "fsales_order_detailgrid_x<?= $Grid->RowIndex ?>_product_id" },
+        el = document.querySelector("select[data-select2-id='" + options.selectId + "']");
+    options.dropdownParent = el.closest("#ew-modal-dialog, #ew-add-opt-dialog");
+    if (fsales_order_detailgrid.lists.product_id.lookupOptions.length) {
+        options.data = { id: "x<?= $Grid->RowIndex ?>_product_id", form: "fsales_order_detailgrid" };
+    } else {
+        options.ajax = { id: "x<?= $Grid->RowIndex ?>_product_id", form: "fsales_order_detailgrid", limit: ew.LOOKUP_PAGE_SIZE };
+    }
+    options.minimumResultsForSearch = Infinity;
+    options = Object.assign({}, ew.selectOptions, options, ew.vars.tables.sales_order_detail.fields.product_id.selectOptions);
+    ew.createSelect(options);
 });
 </script>
-<?= $Grid->product_id->Lookup->getParamTag($Grid, "p_x" . $Grid->RowIndex . "_product_id") ?>
 </span>
 <?php } ?>
 <?php if ($Grid->RowType == ROWTYPE_VIEW) { // View record ?>
@@ -583,25 +603,35 @@ $Grid->ListOptions->render("body", "left", $Grid->RowIndex);
         <td data-name="product_id">
 <?php if (!$Grid->isConfirm()) { ?>
 <span id="el$rowindex$_sales_order_detail_product_id" class="el_sales_order_detail_product_id">
-<?php
-$onchange = $Grid->product_id->EditAttrs->prepend("onchange", "");
-$onchange = ($onchange) ? ' onchange="' . JsEncode($onchange) . '"' : '';
-$Grid->product_id->EditAttrs["onchange"] = "";
-if (IsRTL()) {
-    $Grid->product_id->EditAttrs["dir"] = "rtl";
-}
-?>
-<span id="as_x<?= $Grid->RowIndex ?>_product_id" class="ew-auto-suggest">
-    <input type="<?= $Grid->product_id->getInputTextType() ?>" class="form-control" name="sv_x<?= $Grid->RowIndex ?>_product_id" id="sv_x<?= $Grid->RowIndex ?>_product_id" value="<?= RemoveHtml($Grid->product_id->EditValue) ?>" size="30" placeholder="<?= HtmlEncode($Grid->product_id->getPlaceHolder()) ?>" data-placeholder="<?= HtmlEncode($Grid->product_id->getPlaceHolder()) ?>"<?= $Grid->product_id->editAttributes() ?>>
-</span>
-<selection-list hidden class="form-control" data-table="sales_order_detail" data-field="x_product_id" data-input="sv_x<?= $Grid->RowIndex ?>_product_id" data-value-separator="<?= $Grid->product_id->displayValueSeparatorAttribute() ?>" name="x<?= $Grid->RowIndex ?>_product_id" id="x<?= $Grid->RowIndex ?>_product_id" value="<?= HtmlEncode($Grid->product_id->CurrentValue) ?>"<?= $onchange ?>></selection-list>
-<div class="invalid-feedback"><?= $Grid->product_id->getErrorMessage() ?></div>
+    <select
+        id="x<?= $Grid->RowIndex ?>_product_id"
+        name="x<?= $Grid->RowIndex ?>_product_id"
+        class="form-select ew-select<?= $Grid->product_id->isInvalidClass() ?>"
+        data-select2-id="fsales_order_detailgrid_x<?= $Grid->RowIndex ?>_product_id"
+        data-table="sales_order_detail"
+        data-field="x_product_id"
+        data-value-separator="<?= $Grid->product_id->displayValueSeparatorAttribute() ?>"
+        data-placeholder="<?= HtmlEncode($Grid->product_id->getPlaceHolder()) ?>"
+        <?= $Grid->product_id->editAttributes() ?>>
+        <?= $Grid->product_id->selectOptionListHtml("x{$Grid->RowIndex}_product_id") ?>
+    </select>
+    <div class="invalid-feedback"><?= $Grid->product_id->getErrorMessage() ?></div>
+<?= $Grid->product_id->Lookup->getParamTag($Grid, "p_x" . $Grid->RowIndex . "_product_id") ?>
 <script>
 loadjs.ready("fsales_order_detailgrid", function() {
-    fsales_order_detailgrid.createAutoSuggest(Object.assign({"id":"x<?= $Grid->RowIndex ?>_product_id","forceSelect":false}, ew.vars.tables.sales_order_detail.fields.product_id.autoSuggestOptions));
+    var options = { name: "x<?= $Grid->RowIndex ?>_product_id", selectId: "fsales_order_detailgrid_x<?= $Grid->RowIndex ?>_product_id" },
+        el = document.querySelector("select[data-select2-id='" + options.selectId + "']");
+    options.dropdownParent = el.closest("#ew-modal-dialog, #ew-add-opt-dialog");
+    if (fsales_order_detailgrid.lists.product_id.lookupOptions.length) {
+        options.data = { id: "x<?= $Grid->RowIndex ?>_product_id", form: "fsales_order_detailgrid" };
+    } else {
+        options.ajax = { id: "x<?= $Grid->RowIndex ?>_product_id", form: "fsales_order_detailgrid", limit: ew.LOOKUP_PAGE_SIZE };
+    }
+    options.minimumResultsForSearch = Infinity;
+    options = Object.assign({}, ew.selectOptions, options, ew.vars.tables.sales_order_detail.fields.product_id.selectOptions);
+    ew.createSelect(options);
 });
 </script>
-<?= $Grid->product_id->Lookup->getParamTag($Grid, "p_x" . $Grid->RowIndex . "_product_id") ?>
 </span>
 <?php } else { ?>
 <span id="el$rowindex$_sales_order_detail_product_id" class="el_sales_order_detail_product_id">

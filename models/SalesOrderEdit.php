@@ -706,7 +706,7 @@ class SalesOrderEdit extends SalesOrder
             if (IsApi() && $val === null) {
                 $this->customer_id->Visible = false; // Disable update for API request
             } else {
-                $this->customer_id->setFormValue($val, true, $validate);
+                $this->customer_id->setFormValue($val);
             }
         }
 
@@ -854,7 +854,6 @@ class SalesOrderEdit extends SalesOrder
             $this->order_id->ViewCustomAttributes = "";
 
             // customer_id
-            $this->customer_id->ViewValue = $this->customer_id->CurrentValue;
             $curVal = strval($this->customer_id->CurrentValue);
             if ($curVal != "") {
                 $this->customer_id->ViewValue = $this->customer_id->lookupCacheOption($curVal);
@@ -913,27 +912,28 @@ class SalesOrderEdit extends SalesOrder
             // customer_id
             $this->customer_id->setupEditAttributes();
             $this->customer_id->EditCustomAttributes = "";
-            $this->customer_id->EditValue = HtmlEncode($this->customer_id->CurrentValue);
-            $curVal = strval($this->customer_id->CurrentValue);
+            $curVal = trim(strval($this->customer_id->CurrentValue));
             if ($curVal != "") {
-                $this->customer_id->EditValue = $this->customer_id->lookupCacheOption($curVal);
-                if ($this->customer_id->EditValue === null) { // Lookup from database
-                    $filterWrk = "`customer_id`" . SearchString("=", $curVal, DATATYPE_NUMBER, "");
-                    $sqlWrk = $this->customer_id->Lookup->getSql(false, $filterWrk, '', $this, true, true);
-                    $conn = Conn();
-                    $config = $conn->getConfiguration();
-                    $config->setResultCacheImpl($this->Cache);
-                    $rswrk = $conn->executeCacheQuery($sqlWrk, [], [], $this->CacheProfile)->fetchAll();
-                    $ari = count($rswrk);
-                    if ($ari > 0) { // Lookup values found
-                        $arwrk = $this->customer_id->Lookup->renderViewRow($rswrk[0]);
-                        $this->customer_id->EditValue = $this->customer_id->displayValue($arwrk);
-                    } else {
-                        $this->customer_id->EditValue = HtmlEncode(FormatNumber($this->customer_id->CurrentValue, $this->customer_id->formatPattern()));
-                    }
-                }
+                $this->customer_id->ViewValue = $this->customer_id->lookupCacheOption($curVal);
             } else {
-                $this->customer_id->EditValue = null;
+                $this->customer_id->ViewValue = $this->customer_id->Lookup !== null && is_array($this->customer_id->lookupOptions()) ? $curVal : null;
+            }
+            if ($this->customer_id->ViewValue !== null) { // Load from cache
+                $this->customer_id->EditValue = array_values($this->customer_id->lookupOptions());
+            } else { // Lookup from database
+                if ($curVal == "") {
+                    $filterWrk = "0=1";
+                } else {
+                    $filterWrk = "`customer_id`" . SearchString("=", $this->customer_id->CurrentValue, DATATYPE_NUMBER, "");
+                }
+                $sqlWrk = $this->customer_id->Lookup->getSql(true, $filterWrk, '', $this, false, true);
+                $conn = Conn();
+                $config = $conn->getConfiguration();
+                $config->setResultCacheImpl($this->Cache);
+                $rswrk = $conn->executeCacheQuery($sqlWrk, [], [], $this->CacheProfile)->fetchAll();
+                $ari = count($rswrk);
+                $arwrk = $rswrk;
+                $this->customer_id->EditValue = $arwrk;
             }
             $this->customer_id->PlaceHolder = RemoveHtml($this->customer_id->caption());
 
@@ -999,9 +999,6 @@ class SalesOrderEdit extends SalesOrder
             if (!$this->customer_id->IsDetailKey && EmptyValue($this->customer_id->FormValue)) {
                 $this->customer_id->addErrorMessage(str_replace("%s", $this->customer_id->caption(), $this->customer_id->RequiredErrorMessage));
             }
-        }
-        if (!CheckInteger($this->customer_id->FormValue)) {
-            $this->customer_id->addErrorMessage($this->customer_id->getErrorMessage(false));
         }
         if ($this->date->Required) {
             if (!$this->date->IsDetailKey && EmptyValue($this->date->FormValue)) {

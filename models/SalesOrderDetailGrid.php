@@ -1392,7 +1392,7 @@ class SalesOrderDetailGrid extends SalesOrderDetail
             if (IsApi() && $val === null) {
                 $this->product_id->Visible = false; // Disable update for API request
             } else {
-                $this->product_id->setFormValue($val, true, $validate);
+                $this->product_id->setFormValue($val);
             }
         }
         if ($CurrentForm->hasValue("o_product_id")) {
@@ -1664,7 +1664,6 @@ class SalesOrderDetailGrid extends SalesOrderDetail
             $this->order_detail_id->ViewCustomAttributes = "";
 
             // product_id
-            $this->product_id->ViewValue = $this->product_id->CurrentValue;
             $curVal = strval($this->product_id->CurrentValue);
             if ($curVal != "") {
                 $this->product_id->ViewValue = $this->product_id->lookupCacheOption($curVal);
@@ -1783,27 +1782,28 @@ class SalesOrderDetailGrid extends SalesOrderDetail
             // product_id
             $this->product_id->setupEditAttributes();
             $this->product_id->EditCustomAttributes = "";
-            $this->product_id->EditValue = HtmlEncode($this->product_id->CurrentValue);
-            $curVal = strval($this->product_id->CurrentValue);
+            $curVal = trim(strval($this->product_id->CurrentValue));
             if ($curVal != "") {
-                $this->product_id->EditValue = $this->product_id->lookupCacheOption($curVal);
-                if ($this->product_id->EditValue === null) { // Lookup from database
-                    $filterWrk = "`product_id`" . SearchString("=", $curVal, DATATYPE_NUMBER, "");
-                    $sqlWrk = $this->product_id->Lookup->getSql(false, $filterWrk, '', $this, true, true);
-                    $conn = Conn();
-                    $config = $conn->getConfiguration();
-                    $config->setResultCacheImpl($this->Cache);
-                    $rswrk = $conn->executeCacheQuery($sqlWrk, [], [], $this->CacheProfile)->fetchAll();
-                    $ari = count($rswrk);
-                    if ($ari > 0) { // Lookup values found
-                        $arwrk = $this->product_id->Lookup->renderViewRow($rswrk[0]);
-                        $this->product_id->EditValue = $this->product_id->displayValue($arwrk);
-                    } else {
-                        $this->product_id->EditValue = HtmlEncode(FormatNumber($this->product_id->CurrentValue, $this->product_id->formatPattern()));
-                    }
-                }
+                $this->product_id->ViewValue = $this->product_id->lookupCacheOption($curVal);
             } else {
-                $this->product_id->EditValue = null;
+                $this->product_id->ViewValue = $this->product_id->Lookup !== null && is_array($this->product_id->lookupOptions()) ? $curVal : null;
+            }
+            if ($this->product_id->ViewValue !== null) { // Load from cache
+                $this->product_id->EditValue = array_values($this->product_id->lookupOptions());
+            } else { // Lookup from database
+                if ($curVal == "") {
+                    $filterWrk = "0=1";
+                } else {
+                    $filterWrk = "`product_id`" . SearchString("=", $this->product_id->CurrentValue, DATATYPE_NUMBER, "");
+                }
+                $sqlWrk = $this->product_id->Lookup->getSql(true, $filterWrk, '', $this, false, true);
+                $conn = Conn();
+                $config = $conn->getConfiguration();
+                $config->setResultCacheImpl($this->Cache);
+                $rswrk = $conn->executeCacheQuery($sqlWrk, [], [], $this->CacheProfile)->fetchAll();
+                $ari = count($rswrk);
+                $arwrk = $rswrk;
+                $this->product_id->EditValue = $arwrk;
             }
             $this->product_id->PlaceHolder = RemoveHtml($this->product_id->caption());
 
@@ -1935,27 +1935,28 @@ class SalesOrderDetailGrid extends SalesOrderDetail
             // product_id
             $this->product_id->setupEditAttributes();
             $this->product_id->EditCustomAttributes = "";
-            $this->product_id->EditValue = HtmlEncode($this->product_id->CurrentValue);
-            $curVal = strval($this->product_id->CurrentValue);
+            $curVal = trim(strval($this->product_id->CurrentValue));
             if ($curVal != "") {
-                $this->product_id->EditValue = $this->product_id->lookupCacheOption($curVal);
-                if ($this->product_id->EditValue === null) { // Lookup from database
-                    $filterWrk = "`product_id`" . SearchString("=", $curVal, DATATYPE_NUMBER, "");
-                    $sqlWrk = $this->product_id->Lookup->getSql(false, $filterWrk, '', $this, true, true);
-                    $conn = Conn();
-                    $config = $conn->getConfiguration();
-                    $config->setResultCacheImpl($this->Cache);
-                    $rswrk = $conn->executeCacheQuery($sqlWrk, [], [], $this->CacheProfile)->fetchAll();
-                    $ari = count($rswrk);
-                    if ($ari > 0) { // Lookup values found
-                        $arwrk = $this->product_id->Lookup->renderViewRow($rswrk[0]);
-                        $this->product_id->EditValue = $this->product_id->displayValue($arwrk);
-                    } else {
-                        $this->product_id->EditValue = HtmlEncode(FormatNumber($this->product_id->CurrentValue, $this->product_id->formatPattern()));
-                    }
-                }
+                $this->product_id->ViewValue = $this->product_id->lookupCacheOption($curVal);
             } else {
-                $this->product_id->EditValue = null;
+                $this->product_id->ViewValue = $this->product_id->Lookup !== null && is_array($this->product_id->lookupOptions()) ? $curVal : null;
+            }
+            if ($this->product_id->ViewValue !== null) { // Load from cache
+                $this->product_id->EditValue = array_values($this->product_id->lookupOptions());
+            } else { // Lookup from database
+                if ($curVal == "") {
+                    $filterWrk = "0=1";
+                } else {
+                    $filterWrk = "`product_id`" . SearchString("=", $this->product_id->CurrentValue, DATATYPE_NUMBER, "");
+                }
+                $sqlWrk = $this->product_id->Lookup->getSql(true, $filterWrk, '', $this, false, true);
+                $conn = Conn();
+                $config = $conn->getConfiguration();
+                $config->setResultCacheImpl($this->Cache);
+                $rswrk = $conn->executeCacheQuery($sqlWrk, [], [], $this->CacheProfile)->fetchAll();
+                $ari = count($rswrk);
+                $arwrk = $rswrk;
+                $this->product_id->EditValue = $arwrk;
             }
             $this->product_id->PlaceHolder = RemoveHtml($this->product_id->caption());
 
@@ -2107,9 +2108,6 @@ class SalesOrderDetailGrid extends SalesOrderDetail
             if (!$this->product_id->IsDetailKey && EmptyValue($this->product_id->FormValue)) {
                 $this->product_id->addErrorMessage(str_replace("%s", $this->product_id->caption(), $this->product_id->RequiredErrorMessage));
             }
-        }
-        if (!CheckInteger($this->product_id->FormValue)) {
-            $this->product_id->addErrorMessage($this->product_id->getErrorMessage(false));
         }
         if ($this->sales_order_id->Required) {
             if (!$this->sales_order_id->IsDetailKey && EmptyValue($this->sales_order_id->FormValue)) {

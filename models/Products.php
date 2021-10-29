@@ -1006,7 +1006,7 @@ class Products extends DbTable
         $this->name->PlaceHolder = RemoveHtml($this->name->caption());
 
         // price
-        $this->price->setupEditAttributes();
+        $this->price->setupEditAttributes(["step" => "0.01"]);
         $this->price->EditCustomAttributes = "";
         $this->price->EditValue = $this->price->CurrentValue;
         $this->price->PlaceHolder = RemoveHtml($this->price->caption());

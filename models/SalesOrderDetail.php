@@ -120,11 +120,13 @@ class SalesOrderDetail extends DbTable
             false,
             false,
             'FORMATTED TEXT',
-            'TEXT'
+            'SELECT'
         );
         $this->product_id->InputTextType = "text";
         $this->product_id->Nullable = false; // NOT NULL field
         $this->product_id->Required = true; // Required field
+        $this->product_id->UsePleaseSelect = true; // Use PleaseSelect by default
+        $this->product_id->PleaseSelectText = $Language->phrase("PleaseSelect"); // "PleaseSelect" text
         switch ($CurrentLanguage) {
             case "en-US":
                 $this->product_id->Lookup = new Lookup('product_id', 'products', false, 'product_id', ["code","name","",""], [], [], [], [], [], [], '', '', "CONCAT(COALESCE(`code`, ''),'" . ValueSeparator(1, $this->product_id) . "',COALESCE(`name`,''))");
@@ -1189,7 +1191,6 @@ class SalesOrderDetail extends DbTable
         $this->order_detail_id->ViewCustomAttributes = "";
 
         // product_id
-        $this->product_id->ViewValue = $this->product_id->CurrentValue;
         $curVal = strval($this->product_id->CurrentValue);
         if ($curVal != "") {
             $this->product_id->ViewValue = $this->product_id->lookupCacheOption($curVal);
@@ -1336,7 +1337,6 @@ class SalesOrderDetail extends DbTable
         // product_id
         $this->product_id->setupEditAttributes();
         $this->product_id->EditCustomAttributes = "";
-        $this->product_id->EditValue = $this->product_id->CurrentValue;
         $this->product_id->PlaceHolder = RemoveHtml($this->product_id->caption());
 
         // sales_order_id

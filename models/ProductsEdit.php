@@ -888,7 +888,7 @@ class ProductsEdit extends Products
             $this->name->PlaceHolder = RemoveHtml($this->name->caption());
 
             // price
-            $this->price->setupEditAttributes();
+            $this->price->setupEditAttributes(["step" => "0.01"]);
             $this->price->EditCustomAttributes = "";
             $this->price->EditValue = HtmlEncode($this->price->CurrentValue);
             $this->price->PlaceHolder = RemoveHtml($this->price->caption());

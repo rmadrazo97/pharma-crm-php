@@ -21,7 +21,7 @@ loadjs.ready(["wrapper", "head"], function () {
     var fields = currentTable.fields;
     fsales_orderedit.addFields([
         ["order_id", [fields.order_id.visible && fields.order_id.required ? ew.Validators.required(fields.order_id.caption) : null], fields.order_id.isInvalid],
-        ["customer_id", [fields.customer_id.visible && fields.customer_id.required ? ew.Validators.required(fields.customer_id.caption) : null, ew.Validators.integer], fields.customer_id.isInvalid],
+        ["customer_id", [fields.customer_id.visible && fields.customer_id.required ? ew.Validators.required(fields.customer_id.caption) : null], fields.customer_id.isInvalid],
         ["date", [fields.date.visible && fields.date.required ? ew.Validators.required(fields.date.caption) : null, ew.Validators.datetime(fields.date.clientFormatPattern)], fields.date.isInvalid],
         ["state", [fields.state.visible && fields.state.required ? ew.Validators.required(fields.state.caption) : null, ew.Validators.integer], fields.state.isInvalid]
     ]);
@@ -73,29 +73,39 @@ $Page->showMessage();
 <?php } ?>
 <?php if ($Page->customer_id->Visible) { // customer_id ?>
     <div id="r_customer_id"<?= $Page->customer_id->rowAttributes() ?>>
-        <label id="elh_sales_order_customer_id" class="<?= $Page->LeftColumnClass ?>"><?= $Page->customer_id->caption() ?><?= $Page->customer_id->Required ? $Language->phrase("FieldRequiredIndicator") : "" ?></label>
+        <label id="elh_sales_order_customer_id" for="x_customer_id" class="<?= $Page->LeftColumnClass ?>"><?= $Page->customer_id->caption() ?><?= $Page->customer_id->Required ? $Language->phrase("FieldRequiredIndicator") : "" ?></label>
         <div class="<?= $Page->RightColumnClass ?>"><div<?= $Page->customer_id->cellAttributes() ?>>
 <span id="el_sales_order_customer_id">
-<?php
-$onchange = $Page->customer_id->EditAttrs->prepend("onchange", "");
-$onchange = ($onchange) ? ' onchange="' . JsEncode($onchange) . '"' : '';
-$Page->customer_id->EditAttrs["onchange"] = "";
-if (IsRTL()) {
-    $Page->customer_id->EditAttrs["dir"] = "rtl";
-}
-?>
-<span id="as_x_customer_id" class="ew-auto-suggest">
-    <input type="<?= $Page->customer_id->getInputTextType() ?>" class="form-control" name="sv_x_customer_id" id="sv_x_customer_id" value="<?= RemoveHtml($Page->customer_id->EditValue) ?>" size="30" placeholder="<?= HtmlEncode($Page->customer_id->getPlaceHolder()) ?>" data-placeholder="<?= HtmlEncode($Page->customer_id->getPlaceHolder()) ?>"<?= $Page->customer_id->editAttributes() ?> aria-describedby="x_customer_id_help">
-</span>
-<selection-list hidden class="form-control" data-table="sales_order" data-field="x_customer_id" data-input="sv_x_customer_id" data-value-separator="<?= $Page->customer_id->displayValueSeparatorAttribute() ?>" name="x_customer_id" id="x_customer_id" value="<?= HtmlEncode($Page->customer_id->CurrentValue) ?>"<?= $onchange ?>></selection-list>
-<?= $Page->customer_id->getCustomMessage() ?>
-<div class="invalid-feedback"><?= $Page->customer_id->getErrorMessage() ?></div>
+    <select
+        id="x_customer_id"
+        name="x_customer_id"
+        class="form-select ew-select<?= $Page->customer_id->isInvalidClass() ?>"
+        data-select2-id="fsales_orderedit_x_customer_id"
+        data-table="sales_order"
+        data-field="x_customer_id"
+        data-value-separator="<?= $Page->customer_id->displayValueSeparatorAttribute() ?>"
+        data-placeholder="<?= HtmlEncode($Page->customer_id->getPlaceHolder()) ?>"
+        <?= $Page->customer_id->editAttributes() ?>>
+        <?= $Page->customer_id->selectOptionListHtml("x_customer_id") ?>
+    </select>
+    <?= $Page->customer_id->getCustomMessage() ?>
+    <div class="invalid-feedback"><?= $Page->customer_id->getErrorMessage() ?></div>
+<?= $Page->customer_id->Lookup->getParamTag($Page, "p_x_customer_id") ?>
 <script>
 loadjs.ready("fsales_orderedit", function() {
-    fsales_orderedit.createAutoSuggest(Object.assign({"id":"x_customer_id","forceSelect":false}, ew.vars.tables.sales_order.fields.customer_id.autoSuggestOptions));
+    var options = { name: "x_customer_id", selectId: "fsales_orderedit_x_customer_id" },
+        el = document.querySelector("select[data-select2-id='" + options.selectId + "']");
+    options.dropdownParent = el.closest("#ew-modal-dialog, #ew-add-opt-dialog");
+    if (fsales_orderedit.lists.customer_id.lookupOptions.length) {
+        options.data = { id: "x_customer_id", form: "fsales_orderedit" };
+    } else {
+        options.ajax = { id: "x_customer_id", form: "fsales_orderedit", limit: ew.LOOKUP_PAGE_SIZE };
+    }
+    options.minimumResultsForSearch = Infinity;
+    options = Object.assign({}, ew.selectOptions, options, ew.vars.tables.sales_order.fields.customer_id.selectOptions);
+    ew.createSelect(options);
 });
 </script>
-<?= $Page->customer_id->Lookup->getParamTag($Page, "p_x_customer_id") ?>
 </span>
 </div></div>
     </div>

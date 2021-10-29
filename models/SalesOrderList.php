@@ -1554,7 +1554,6 @@ class SalesOrderList extends SalesOrder
             $this->order_id->ViewCustomAttributes = "";
 
             // customer_id
-            $this->customer_id->ViewValue = $this->customer_id->CurrentValue;
             $curVal = strval($this->customer_id->CurrentValue);
             if ($curVal != "") {
                 $this->customer_id->ViewValue = $this->customer_id->lookupCacheOption($curVal);

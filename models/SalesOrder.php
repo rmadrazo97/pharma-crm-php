@@ -116,11 +116,13 @@ class SalesOrder extends DbTable
             false,
             false,
             'FORMATTED TEXT',
-            'TEXT'
+            'SELECT'
         );
         $this->customer_id->InputTextType = "text";
         $this->customer_id->Nullable = false; // NOT NULL field
         $this->customer_id->Required = true; // Required field
+        $this->customer_id->UsePleaseSelect = true; // Use PleaseSelect by default
+        $this->customer_id->PleaseSelectText = $Language->phrase("PleaseSelect"); // "PleaseSelect" text
         switch ($CurrentLanguage) {
             case "en-US":
                 $this->customer_id->Lookup = new Lookup('customer_id', 'customers', false, 'customer_id', ["customer_id","name","phone","email"], [], [], [], [], [], [], '', '', "CONCAT(COALESCE(`customer_id`, ''),'" . ValueSeparator(1, $this->customer_id) . "',COALESCE(`name`,''),'" . ValueSeparator(2, $this->customer_id) . "',COALESCE(`phone`,''),'" . ValueSeparator(3, $this->customer_id) . "',COALESCE(`email`,''))");
@@ -1033,7 +1035,6 @@ class SalesOrder extends DbTable
         $this->order_id->ViewCustomAttributes = "";
 
         // customer_id
-        $this->customer_id->ViewValue = $this->customer_id->CurrentValue;
         $curVal = strval($this->customer_id->CurrentValue);
         if ($curVal != "") {
             $this->customer_id->ViewValue = $this->customer_id->lookupCacheOption($curVal);
@@ -1111,7 +1112,6 @@ class SalesOrder extends DbTable
         // customer_id
         $this->customer_id->setupEditAttributes();
         $this->customer_id->EditCustomAttributes = "";
-        $this->customer_id->EditValue = $this->customer_id->CurrentValue;
         $this->customer_id->PlaceHolder = RemoveHtml($this->customer_id->caption());
 
         // date

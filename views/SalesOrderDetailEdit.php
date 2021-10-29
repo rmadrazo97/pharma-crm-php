@@ -21,7 +21,7 @@ loadjs.ready(["wrapper", "head"], function () {
     var fields = currentTable.fields;
     fsales_order_detailedit.addFields([
         ["order_detail_id", [fields.order_detail_id.visible && fields.order_detail_id.required ? ew.Validators.required(fields.order_detail_id.caption) : null], fields.order_detail_id.isInvalid],
-        ["product_id", [fields.product_id.visible && fields.product_id.required ? ew.Validators.required(fields.product_id.caption) : null, ew.Validators.integer], fields.product_id.isInvalid],
+        ["product_id", [fields.product_id.visible && fields.product_id.required ? ew.Validators.required(fields.product_id.caption) : null], fields.product_id.isInvalid],
         ["sales_order_id", [fields.sales_order_id.visible && fields.sales_order_id.required ? ew.Validators.required(fields.sales_order_id.caption) : null, ew.Validators.integer], fields.sales_order_id.isInvalid],
         ["quantity", [fields.quantity.visible && fields.quantity.required ? ew.Validators.required(fields.quantity.caption) : null, ew.Validators.integer], fields.quantity.isInvalid],
         ["description", [fields.description.visible && fields.description.required ? ew.Validators.required(fields.description.caption) : null], fields.description.isInvalid],
@@ -83,29 +83,39 @@ $Page->showMessage();
 <?php } ?>
 <?php if ($Page->product_id->Visible) { // product_id ?>
     <div id="r_product_id"<?= $Page->product_id->rowAttributes() ?>>
-        <label id="elh_sales_order_detail_product_id" class="<?= $Page->LeftColumnClass ?>"><?= $Page->product_id->caption() ?><?= $Page->product_id->Required ? $Language->phrase("FieldRequiredIndicator") : "" ?></label>
+        <label id="elh_sales_order_detail_product_id" for="x_product_id" class="<?= $Page->LeftColumnClass ?>"><?= $Page->product_id->caption() ?><?= $Page->product_id->Required ? $Language->phrase("FieldRequiredIndicator") : "" ?></label>
         <div class="<?= $Page->RightColumnClass ?>"><div<?= $Page->product_id->cellAttributes() ?>>
 <span id="el_sales_order_detail_product_id">
-<?php
-$onchange = $Page->product_id->EditAttrs->prepend("onchange", "");
-$onchange = ($onchange) ? ' onchange="' . JsEncode($onchange) . '"' : '';
-$Page->product_id->EditAttrs["onchange"] = "";
-if (IsRTL()) {
-    $Page->product_id->EditAttrs["dir"] = "rtl";
-}
-?>
-<span id="as_x_product_id" class="ew-auto-suggest">
-    <input type="<?= $Page->product_id->getInputTextType() ?>" class="form-control" name="sv_x_product_id" id="sv_x_product_id" value="<?= RemoveHtml($Page->product_id->EditValue) ?>" size="30" placeholder="<?= HtmlEncode($Page->product_id->getPlaceHolder()) ?>" data-placeholder="<?= HtmlEncode($Page->product_id->getPlaceHolder()) ?>"<?= $Page->product_id->editAttributes() ?> aria-describedby="x_product_id_help">
-</span>
-<selection-list hidden class="form-control" data-table="sales_order_detail" data-field="x_product_id" data-input="sv_x_product_id" data-value-separator="<?= $Page->product_id->displayValueSeparatorAttribute() ?>" name="x_product_id" id="x_product_id" value="<?= HtmlEncode($Page->product_id->CurrentValue) ?>"<?= $onchange ?>></selection-list>
-<?= $Page->product_id->getCustomMessage() ?>
-<div class="invalid-feedback"><?= $Page->product_id->getErrorMessage() ?></div>
+    <select
+        id="x_product_id"
+        name="x_product_id"
+        class="form-select ew-select<?= $Page->product_id->isInvalidClass() ?>"
+        data-select2-id="fsales_order_detailedit_x_product_id"
+        data-table="sales_order_detail"
+        data-field="x_product_id"
+        data-value-separator="<?= $Page->product_id->displayValueSeparatorAttribute() ?>"
+        data-placeholder="<?= HtmlEncode($Page->product_id->getPlaceHolder()) ?>"
+        <?= $Page->product_id->editAttributes() ?>>
+        <?= $Page->product_id->selectOptionListHtml("x_product_id") ?>
+    </select>
+    <?= $Page->product_id->getCustomMessage() ?>
+    <div class="invalid-feedback"><?= $Page->product_id->getErrorMessage() ?></div>
+<?= $Page->product_id->Lookup->getParamTag($Page, "p_x_product_id") ?>
 <script>
 loadjs.ready("fsales_order_detailedit", function() {
-    fsales_order_detailedit.createAutoSuggest(Object.assign({"id":"x_product_id","forceSelect":false}, ew.vars.tables.sales_order_detail.fields.product_id.autoSuggestOptions));
+    var options = { name: "x_product_id", selectId: "fsales_order_detailedit_x_product_id" },
+        el = document.querySelector("select[data-select2-id='" + options.selectId + "']");
+    options.dropdownParent = el.closest("#ew-modal-dialog, #ew-add-opt-dialog");
+    if (fsales_order_detailedit.lists.product_id.lookupOptions.length) {
+        options.data = { id: "x_product_id", form: "fsales_order_detailedit" };
+    } else {
+        options.ajax = { id: "x_product_id", form: "fsales_order_detailedit", limit: ew.LOOKUP_PAGE_SIZE };
+    }
+    options.minimumResultsForSearch = Infinity;
+    options = Object.assign({}, ew.selectOptions, options, ew.vars.tables.sales_order_detail.fields.product_id.selectOptions);
+    ew.createSelect(options);
 });
 </script>
-<?= $Page->product_id->Lookup->getParamTag($Page, "p_x_product_id") ?>
 </span>
 </div></div>
     </div>

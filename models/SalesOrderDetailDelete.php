@@ -656,7 +656,6 @@ class SalesOrderDetailDelete extends SalesOrderDetail
             $this->order_detail_id->ViewCustomAttributes = "";
 
             // product_id
-            $this->product_id->ViewValue = $this->product_id->CurrentValue;
             $curVal = strval($this->product_id->CurrentValue);
             if ($curVal != "") {
                 $this->product_id->ViewValue = $this->product_id->lookupCacheOption($curVal);
