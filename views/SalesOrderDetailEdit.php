@@ -170,7 +170,7 @@ loadjs.ready("fsales_order_detailedit", function() {
         <div class="<?= $Page->RightColumnClass ?>"><div<?= $Page->unit_price->cellAttributes() ?>>
 <span id="el_sales_order_detail_unit_price">
 <?php
-$onchange = $Page->unit_price->EditAttrs->prepend("onchange", "");
+$onchange = $Page->unit_price->EditAttrs->prepend("onchange", "ew.autoFill(this);");
 $onchange = ($onchange) ? ' onchange="' . JsEncode($onchange) . '"' : '';
 $Page->unit_price->EditAttrs["onchange"] = "";
 if (IsRTL()) {
@@ -185,7 +185,7 @@ if (IsRTL()) {
 <div class="invalid-feedback"><?= $Page->unit_price->getErrorMessage() ?></div>
 <script>
 loadjs.ready("fsales_order_detailedit", function() {
-    fsales_order_detailedit.createAutoSuggest(Object.assign({"id":"x_unit_price","forceSelect":false}, ew.vars.tables.sales_order_detail.fields.unit_price.autoSuggestOptions));
+    fsales_order_detailedit.createAutoSuggest(Object.assign({"id":"x_unit_price","forceSelect":true}, ew.vars.tables.sales_order_detail.fields.unit_price.autoSuggestOptions));
 });
 </script>
 <?= $Page->unit_price->Lookup->getParamTag($Page, "p_x_unit_price") ?>

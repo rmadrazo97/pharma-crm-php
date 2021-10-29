@@ -403,7 +403,7 @@ loadjs.ready("fsales_order_detailgrid", function() {
 <?php if ($Grid->RowType == ROWTYPE_ADD) { // Add record ?>
 <span id="el<?= $Grid->RowCount ?>_sales_order_detail_unit_price" class="el_sales_order_detail_unit_price">
 <?php
-$onchange = $Grid->unit_price->EditAttrs->prepend("onchange", "");
+$onchange = $Grid->unit_price->EditAttrs->prepend("onchange", "ew.autoFill(this);");
 $onchange = ($onchange) ? ' onchange="' . JsEncode($onchange) . '"' : '';
 $Grid->unit_price->EditAttrs["onchange"] = "";
 if (IsRTL()) {
@@ -417,7 +417,7 @@ if (IsRTL()) {
 <div class="invalid-feedback"><?= $Grid->unit_price->getErrorMessage() ?></div>
 <script>
 loadjs.ready("fsales_order_detailgrid", function() {
-    fsales_order_detailgrid.createAutoSuggest(Object.assign({"id":"x<?= $Grid->RowIndex ?>_unit_price","forceSelect":false}, ew.vars.tables.sales_order_detail.fields.unit_price.autoSuggestOptions));
+    fsales_order_detailgrid.createAutoSuggest(Object.assign({"id":"x<?= $Grid->RowIndex ?>_unit_price","forceSelect":true}, ew.vars.tables.sales_order_detail.fields.unit_price.autoSuggestOptions));
 });
 </script>
 <?= $Grid->unit_price->Lookup->getParamTag($Grid, "p_x" . $Grid->RowIndex . "_unit_price") ?>
@@ -427,7 +427,7 @@ loadjs.ready("fsales_order_detailgrid", function() {
 <?php if ($Grid->RowType == ROWTYPE_EDIT) { // Edit record ?>
 <span id="el<?= $Grid->RowCount ?>_sales_order_detail_unit_price" class="el_sales_order_detail_unit_price">
 <?php
-$onchange = $Grid->unit_price->EditAttrs->prepend("onchange", "");
+$onchange = $Grid->unit_price->EditAttrs->prepend("onchange", "ew.autoFill(this);");
 $onchange = ($onchange) ? ' onchange="' . JsEncode($onchange) . '"' : '';
 $Grid->unit_price->EditAttrs["onchange"] = "";
 if (IsRTL()) {
@@ -441,7 +441,7 @@ if (IsRTL()) {
 <div class="invalid-feedback"><?= $Grid->unit_price->getErrorMessage() ?></div>
 <script>
 loadjs.ready("fsales_order_detailgrid", function() {
-    fsales_order_detailgrid.createAutoSuggest(Object.assign({"id":"x<?= $Grid->RowIndex ?>_unit_price","forceSelect":false}, ew.vars.tables.sales_order_detail.fields.unit_price.autoSuggestOptions));
+    fsales_order_detailgrid.createAutoSuggest(Object.assign({"id":"x<?= $Grid->RowIndex ?>_unit_price","forceSelect":true}, ew.vars.tables.sales_order_detail.fields.unit_price.autoSuggestOptions));
 });
 </script>
 <?= $Grid->unit_price->Lookup->getParamTag($Grid, "p_x" . $Grid->RowIndex . "_unit_price") ?>
@@ -690,7 +690,7 @@ loadjs.ready("fsales_order_detailgrid", function() {
 <?php if (!$Grid->isConfirm()) { ?>
 <span id="el$rowindex$_sales_order_detail_unit_price" class="el_sales_order_detail_unit_price">
 <?php
-$onchange = $Grid->unit_price->EditAttrs->prepend("onchange", "");
+$onchange = $Grid->unit_price->EditAttrs->prepend("onchange", "ew.autoFill(this);");
 $onchange = ($onchange) ? ' onchange="' . JsEncode($onchange) . '"' : '';
 $Grid->unit_price->EditAttrs["onchange"] = "";
 if (IsRTL()) {
@@ -704,7 +704,7 @@ if (IsRTL()) {
 <div class="invalid-feedback"><?= $Grid->unit_price->getErrorMessage() ?></div>
 <script>
 loadjs.ready("fsales_order_detailgrid", function() {
-    fsales_order_detailgrid.createAutoSuggest(Object.assign({"id":"x<?= $Grid->RowIndex ?>_unit_price","forceSelect":false}, ew.vars.tables.sales_order_detail.fields.unit_price.autoSuggestOptions));
+    fsales_order_detailgrid.createAutoSuggest(Object.assign({"id":"x<?= $Grid->RowIndex ?>_unit_price","forceSelect":true}, ew.vars.tables.sales_order_detail.fields.unit_price.autoSuggestOptions));
 });
 </script>
 <?= $Grid->unit_price->Lookup->getParamTag($Grid, "p_x" . $Grid->RowIndex . "_unit_price") ?>

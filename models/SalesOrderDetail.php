@@ -237,10 +237,10 @@ class SalesOrderDetail extends DbTable
         $this->unit_price->Required = true; // Required field
         switch ($CurrentLanguage) {
             case "en-US":
-                $this->unit_price->Lookup = new Lookup('unit_price', 'products', false, 'price', ["price","","",""], [], [], [], [], [], [], '', '', "`price`");
+                $this->unit_price->Lookup = new Lookup('unit_price', 'products', false, 'price', ["price","","",""], [], [], [], [], ["price"], ["x_quantity"], '', '', "`price`");
                 break;
             default:
-                $this->unit_price->Lookup = new Lookup('unit_price', 'products', false, 'price', ["price","","",""], [], [], [], [], [], [], '', '', "`price`");
+                $this->unit_price->Lookup = new Lookup('unit_price', 'products', false, 'price', ["price","","",""], [], [], [], [], ["price"], ["x_quantity"], '', '', "`price`");
                 break;
         }
         $this->unit_price->DefaultErrorMessage = $Language->phrase("IncorrectFloat");
