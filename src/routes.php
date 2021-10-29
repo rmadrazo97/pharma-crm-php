@@ -61,7 +61,6 @@ return function (App $app) {
     // sales_order_detail
     $app->map(["GET","POST","OPTIONS"], '/SalesOrderDetailList[/{order_detail_id}]', SalesOrderDetailController::class . ':list')->add(PermissionMiddleware::class)->setName('SalesOrderDetailList-sales_order_detail-list'); // list
     $app->map(["GET","POST","OPTIONS"], '/SalesOrderDetailAdd[/{order_detail_id}]', SalesOrderDetailController::class . ':add')->add(PermissionMiddleware::class)->setName('SalesOrderDetailAdd-sales_order_detail-add'); // add
-    $app->map(["GET","POST","OPTIONS"], '/SalesOrderDetailView[/{order_detail_id}]', SalesOrderDetailController::class . ':view')->add(PermissionMiddleware::class)->setName('SalesOrderDetailView-sales_order_detail-view'); // view
     $app->map(["GET","POST","OPTIONS"], '/SalesOrderDetailEdit[/{order_detail_id}]', SalesOrderDetailController::class . ':edit')->add(PermissionMiddleware::class)->setName('SalesOrderDetailEdit-sales_order_detail-edit'); // edit
     $app->map(["GET","POST","OPTIONS"], '/SalesOrderDetailDelete[/{order_detail_id}]', SalesOrderDetailController::class . ':delete')->add(PermissionMiddleware::class)->setName('SalesOrderDetailDelete-sales_order_detail-delete'); // delete
     $app->group(
@@ -69,7 +68,6 @@ return function (App $app) {
         function (RouteCollectorProxy $group) {
             $group->map(["GET","POST","OPTIONS"], '/' . Config("LIST_ACTION") . '[/{order_detail_id}]', SalesOrderDetailController::class . ':list')->add(PermissionMiddleware::class)->setName('sales_order_detail/list-sales_order_detail-list-2'); // list
             $group->map(["GET","POST","OPTIONS"], '/' . Config("ADD_ACTION") . '[/{order_detail_id}]', SalesOrderDetailController::class . ':add')->add(PermissionMiddleware::class)->setName('sales_order_detail/add-sales_order_detail-add-2'); // add
-            $group->map(["GET","OPTIONS"], '/' . Config("VIEW_ACTION") . '[/{order_detail_id}]', SalesOrderDetailController::class . ':view')->add(PermissionMiddleware::class)->setName('sales_order_detail/view-sales_order_detail-view-2'); // view
             $group->map(["GET","POST","OPTIONS"], '/' . Config("EDIT_ACTION") . '[/{order_detail_id}]', SalesOrderDetailController::class . ':edit')->add(PermissionMiddleware::class)->setName('sales_order_detail/edit-sales_order_detail-edit-2'); // edit
             $group->map(["GET","POST","OPTIONS"], '/' . Config("DELETE_ACTION") . '[/{order_detail_id}]', SalesOrderDetailController::class . ':delete')->add(PermissionMiddleware::class)->setName('sales_order_detail/delete-sales_order_detail-delete-2'); // delete
         }

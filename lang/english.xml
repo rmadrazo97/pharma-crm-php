@@ -1092,7 +1092,7 @@
         <phrase id="fldcaption" value="Email" />
       </field>
       <field id="state">
-        <phrase id="fldcaption" value="Precio" />
+        <phrase id="fldcaption" value="Estado" />
         <phrase id="fldtagvalue1" value="1" />
         <phrase id="fldtagcaption1" value="Activo" />
         <phrase id="fldtagvalue2" value="2" />

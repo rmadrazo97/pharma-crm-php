@@ -987,18 +987,27 @@ class CustomersEdit extends Customers
             // name
             $this->name->setupEditAttributes();
             $this->name->EditCustomAttributes = "";
+            if (!$this->name->Raw) {
+                $this->name->CurrentValue = HtmlDecode($this->name->CurrentValue);
+            }
             $this->name->EditValue = HtmlEncode($this->name->CurrentValue);
             $this->name->PlaceHolder = RemoveHtml($this->name->caption());
 
             // phone
             $this->phone->setupEditAttributes();
             $this->phone->EditCustomAttributes = "";
+            if (!$this->phone->Raw) {
+                $this->phone->CurrentValue = HtmlDecode($this->phone->CurrentValue);
+            }
             $this->phone->EditValue = HtmlEncode($this->phone->CurrentValue);
             $this->phone->PlaceHolder = RemoveHtml($this->phone->caption());
 
             // email
             $this->_email->setupEditAttributes();
             $this->_email->EditCustomAttributes = "";
+            if (!$this->_email->Raw) {
+                $this->_email->CurrentValue = HtmlDecode($this->_email->CurrentValue);
+            }
             $this->_email->EditValue = HtmlEncode($this->_email->CurrentValue);
             $this->_email->PlaceHolder = RemoveHtml($this->_email->caption());
 

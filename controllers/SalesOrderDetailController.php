@@ -20,12 +20,6 @@ class SalesOrderDetailController extends ControllerBase
         return $this->runPage($request, $response, $args, "SalesOrderDetailAdd");
     }
 
-    // view
-    public function view(Request $request, Response $response, array $args): Response
-    {
-        return $this->runPage($request, $response, $args, "SalesOrderDetailView");
-    }
-
     // edit
     public function edit(Request $request, Response $response, array $args): Response
     {

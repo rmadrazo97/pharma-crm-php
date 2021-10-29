@@ -119,7 +119,7 @@ class Customers extends DbTable
             false,
             false,
             'FORMATTED TEXT',
-            'TEXTAREA'
+            'TEXT'
         );
         $this->name->InputTextType = "text";
         $this->name->Nullable = false; // NOT NULL field
@@ -143,7 +143,7 @@ class Customers extends DbTable
             false,
             false,
             'FORMATTED TEXT',
-            'TEXTAREA'
+            'TEXT'
         );
         $this->phone->InputTextType = "text";
         $this->phone->Nullable = false; // NOT NULL field
@@ -167,9 +167,9 @@ class Customers extends DbTable
             false,
             false,
             'FORMATTED TEXT',
-            'TEXTAREA'
+            'TEXT'
         );
-        $this->_email->InputTextType = "text";
+        $this->_email->InputTextType = "email";
         $this->_email->Nullable = false; // NOT NULL field
         $this->_email->Required = true; // Required field
         $this->Fields['email'] = &$this->_email;
@@ -1178,18 +1178,27 @@ class Customers extends DbTable
         // name
         $this->name->setupEditAttributes();
         $this->name->EditCustomAttributes = "";
+        if (!$this->name->Raw) {
+            $this->name->CurrentValue = HtmlDecode($this->name->CurrentValue);
+        }
         $this->name->EditValue = $this->name->CurrentValue;
         $this->name->PlaceHolder = RemoveHtml($this->name->caption());
 
         // phone
         $this->phone->setupEditAttributes();
         $this->phone->EditCustomAttributes = "";
+        if (!$this->phone->Raw) {
+            $this->phone->CurrentValue = HtmlDecode($this->phone->CurrentValue);
+        }
         $this->phone->EditValue = $this->phone->CurrentValue;
         $this->phone->PlaceHolder = RemoveHtml($this->phone->caption());
 
         // email
         $this->_email->setupEditAttributes();
         $this->_email->EditCustomAttributes = "";
+        if (!$this->_email->Raw) {
+            $this->_email->CurrentValue = HtmlDecode($this->_email->CurrentValue);
+        }
         $this->_email->EditValue = $this->_email->CurrentValue;
         $this->_email->PlaceHolder = RemoveHtml($this->_email->caption());
 

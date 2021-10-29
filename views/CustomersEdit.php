@@ -67,7 +67,7 @@ $Page->showMessage();
         <label id="elh_customers_name" for="x_name" class="<?= $Page->LeftColumnClass ?>"><?= $Page->name->caption() ?><?= $Page->name->Required ? $Language->phrase("FieldRequiredIndicator") : "" ?></label>
         <div class="<?= $Page->RightColumnClass ?>"><div<?= $Page->name->cellAttributes() ?>>
 <span id="el_customers_name">
-<textarea data-table="customers" data-field="x_name" name="x_name" id="x_name" cols="35" rows="4" placeholder="<?= HtmlEncode($Page->name->getPlaceHolder()) ?>"<?= $Page->name->editAttributes() ?> aria-describedby="x_name_help"><?= $Page->name->EditValue ?></textarea>
+<input type="<?= $Page->name->getInputTextType() ?>" name="x_name" id="x_name" data-table="customers" data-field="x_name" value="<?= $Page->name->EditValue ?>" placeholder="<?= HtmlEncode($Page->name->getPlaceHolder()) ?>"<?= $Page->name->editAttributes() ?> aria-describedby="x_name_help">
 <?= $Page->name->getCustomMessage() ?>
 <div class="invalid-feedback"><?= $Page->name->getErrorMessage() ?></div>
 </span>
@@ -79,7 +79,7 @@ $Page->showMessage();
         <label id="elh_customers_phone" for="x_phone" class="<?= $Page->LeftColumnClass ?>"><?= $Page->phone->caption() ?><?= $Page->phone->Required ? $Language->phrase("FieldRequiredIndicator") : "" ?></label>
         <div class="<?= $Page->RightColumnClass ?>"><div<?= $Page->phone->cellAttributes() ?>>
 <span id="el_customers_phone">
-<textarea data-table="customers" data-field="x_phone" name="x_phone" id="x_phone" cols="35" rows="4" placeholder="<?= HtmlEncode($Page->phone->getPlaceHolder()) ?>"<?= $Page->phone->editAttributes() ?> aria-describedby="x_phone_help"><?= $Page->phone->EditValue ?></textarea>
+<input type="<?= $Page->phone->getInputTextType() ?>" name="x_phone" id="x_phone" data-table="customers" data-field="x_phone" value="<?= $Page->phone->EditValue ?>" placeholder="<?= HtmlEncode($Page->phone->getPlaceHolder()) ?>"<?= $Page->phone->editAttributes() ?> aria-describedby="x_phone_help">
 <?= $Page->phone->getCustomMessage() ?>
 <div class="invalid-feedback"><?= $Page->phone->getErrorMessage() ?></div>
 </span>
@@ -91,7 +91,7 @@ $Page->showMessage();
         <label id="elh_customers__email" for="x__email" class="<?= $Page->LeftColumnClass ?>"><?= $Page->_email->caption() ?><?= $Page->_email->Required ? $Language->phrase("FieldRequiredIndicator") : "" ?></label>
         <div class="<?= $Page->RightColumnClass ?>"><div<?= $Page->_email->cellAttributes() ?>>
 <span id="el_customers__email">
-<textarea data-table="customers" data-field="x__email" name="x__email" id="x__email" cols="35" rows="4" placeholder="<?= HtmlEncode($Page->_email->getPlaceHolder()) ?>"<?= $Page->_email->editAttributes() ?> aria-describedby="x__email_help"><?= $Page->_email->EditValue ?></textarea>
+<input type="<?= $Page->_email->getInputTextType() ?>" name="x__email" id="x__email" data-table="customers" data-field="x__email" value="<?= $Page->_email->EditValue ?>" placeholder="<?= HtmlEncode($Page->_email->getPlaceHolder()) ?>"<?= $Page->_email->editAttributes() ?> aria-describedby="x__email_help">
 <?= $Page->_email->getCustomMessage() ?>
 <div class="invalid-feedback"><?= $Page->_email->getErrorMessage() ?></div>
 </span>
@@ -164,7 +164,7 @@ loadjs.ready("fcustomersedit", function() {
     } else {
         options.ajax = { id: "x_user_id", form: "fcustomersedit", limit: ew.LOOKUP_PAGE_SIZE };
     }
-    options.minimumInputLength = ew.selectMinimumInputLength;
+    options.minimumResultsForSearch = Infinity;
     options = Object.assign({}, ew.selectOptions, options, ew.vars.tables.customers.fields.user_id.selectOptions);
     ew.createSelect(options);
 });
